@@ -1,176 +1,216 @@
-import ApplicationLogo from '@/Components/ApplicationLogo';
-import Dropdown from '@/Components/Dropdown';
-import NavLink from '@/Components/NavLink';
-import ResponsiveNavLink from '@/Components/ResponsiveNavLink';
+import { Icon, icons } from '@/Components/Ui';
+import usePermission from '@/Hooks/usePermission';
 import { Link, usePage } from '@inertiajs/react';
 import { useState } from 'react';
 
-export default function AuthenticatedLayout({ header, children }) {
-    const user = usePage().props.auth.user;
+const appName = 'CRM';
 
-    const [showingNavigationDropdown, setShowingNavigationDropdown] =
-        useState(false);
+const navigation = [
+    {
+        section: null,
+        items: [
+            {
+                label: 'Dashboard',
+                icon: icons.home,
+                href: () => route('dashboard'),
+                active: () => route().current('dashboard'),
+                permission: 'dashboard.view',
+            },
+        ],
+    },
+    {
+        section: 'Administration',
+        items: [
+            {
+                label: 'Users',
+                icon: icons.users,
+                href: () => route('admin.users.index'),
+                active: () => route().current('admin.users.*'),
+                permission: 'users.manage',
+            },
+            {
+                label: 'Roles',
+                icon: icons.shield,
+                href: () => route('admin.roles.index'),
+                active: () => route().current('admin.roles.*'),
+                permission: 'roles.manage',
+            },
+        ],
+    },
+];
+
+function SidebarContent({ onNavigate }) {
+    const { auth } = usePage().props;
+    const { can, role } = usePermission();
+
+    const sections = navigation
+        .map((group) => ({
+            ...group,
+            items: group.items.filter((item) => can(item.permission)),
+        }))
+        .filter((group) => group.items.length > 0);
 
     return (
-        <div className="min-h-screen bg-gray-100">
-            <nav className="border-b border-gray-100 bg-white">
-                <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-                    <div className="flex h-16 justify-between">
-                        <div className="flex">
-                            <div className="flex shrink-0 items-center">
-                                <Link href="/">
-                                    <ApplicationLogo className="block h-9 w-auto fill-current text-gray-800" />
-                                </Link>
-                            </div>
-
-                            <div className="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex">
-                                <NavLink
-                                    href={route('dashboard')}
-                                    active={route().current('dashboard')}
-                                >
-                                    Dashboard
-                                </NavLink>
-                            </div>
-                        </div>
-
-                        <div className="hidden sm:ms-6 sm:flex sm:items-center">
-                            <div className="relative ms-3">
-                                <Dropdown>
-                                    <Dropdown.Trigger>
-                                        <span className="inline-flex rounded-md">
-                                            <button
-                                                type="button"
-                                                className="inline-flex items-center rounded-md border border-transparent bg-white px-3 py-2 text-sm font-medium leading-4 text-gray-500 transition duration-150 ease-in-out hover:text-gray-700 focus:outline-none"
-                                            >
-                                                {user.name}
-
-                                                <svg
-                                                    className="-me-0.5 ms-2 h-4 w-4"
-                                                    xmlns="http://www.w3.org/2000/svg"
-                                                    viewBox="0 0 20 20"
-                                                    fill="currentColor"
-                                                >
-                                                    <path
-                                                        fillRule="evenodd"
-                                                        d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
-                                                        clipRule="evenodd"
-                                                    />
-                                                </svg>
-                                            </button>
-                                        </span>
-                                    </Dropdown.Trigger>
-
-                                    <Dropdown.Content>
-                                        <Dropdown.Link
-                                            href={route('profile.edit')}
-                                        >
-                                            Profile
-                                        </Dropdown.Link>
-                                        <Dropdown.Link
-                                            href={route('logout')}
-                                            method="post"
-                                            as="button"
-                                        >
-                                            Log Out
-                                        </Dropdown.Link>
-                                    </Dropdown.Content>
-                                </Dropdown>
-                            </div>
-                        </div>
-
-                        <div className="-me-2 flex items-center sm:hidden">
-                            <button
-                                onClick={() =>
-                                    setShowingNavigationDropdown(
-                                        (previousState) => !previousState,
-                                    )
-                                }
-                                className="inline-flex items-center justify-center rounded-md p-2 text-gray-400 transition duration-150 ease-in-out hover:bg-gray-100 hover:text-gray-500 focus:bg-gray-100 focus:text-gray-500 focus:outline-none"
-                            >
-                                <svg
-                                    className="h-6 w-6"
-                                    stroke="currentColor"
-                                    fill="none"
-                                    viewBox="0 0 24 24"
-                                >
-                                    <path
-                                        className={
-                                            !showingNavigationDropdown
-                                                ? 'inline-flex'
-                                                : 'hidden'
-                                        }
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        strokeWidth="2"
-                                        d="M4 6h16M4 12h16M4 18h16"
-                                    />
-                                    <path
-                                        className={
-                                            showingNavigationDropdown
-                                                ? 'inline-flex'
-                                                : 'hidden'
-                                        }
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        strokeWidth="2"
-                                        d="M6 18L18 6M6 6l12 12"
-                                    />
-                                </svg>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                <div
-                    className={
-                        (showingNavigationDropdown ? 'block' : 'hidden') +
-                        ' sm:hidden'
-                    }
+        <div className="flex h-full flex-col bg-linear-to-b from-primary-950 via-primary-900 to-primary-800 text-white">
+            <div className="flex items-center gap-3 px-6 py-5">
+                <span
+                    className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/15 ring-1 ring-white/30"
+                    aria-hidden="true"
                 >
-                    <div className="space-y-1 pb-3 pt-2">
-                        <ResponsiveNavLink
-                            href={route('dashboard')}
-                            active={route().current('dashboard')}
-                        >
-                            Dashboard
-                        </ResponsiveNavLink>
-                    </div>
+                    <Icon path={icons.logo} className="h-[18px] w-[18px]" />
+                </span>
+                <span className="text-lg font-semibold">{appName}</span>
+            </div>
 
-                    <div className="border-t border-gray-200 pb-1 pt-4">
-                        <div className="px-4">
-                            <div className="text-base font-medium text-gray-800">
-                                {user.name}
-                            </div>
-                            <div className="text-sm font-medium text-gray-500">
-                                {user.email}
-                            </div>
-                        </div>
+            <nav className="flex-1 space-y-6 overflow-y-auto px-3 py-4" aria-label="Main">
+                {sections.map((group) => (
+                    <div key={group.section ?? 'main'}>
+                        {group.section && (
+                            <p className="px-3 pb-2 text-xs font-semibold uppercase tracking-wider text-primary-200/70">
+                                {group.section}
+                            </p>
+                        )}
+                        <ul className="space-y-1">
+                            {group.items.map((item) => {
+                                const active = item.active();
 
-                        <div className="mt-3 space-y-1">
-                            <ResponsiveNavLink href={route('profile.edit')}>
-                                Profile
-                            </ResponsiveNavLink>
-                            <ResponsiveNavLink
-                                method="post"
-                                href={route('logout')}
-                                as="button"
-                            >
-                                Log Out
-                            </ResponsiveNavLink>
-                        </div>
+                                return (
+                                    <li key={item.label}>
+                                        <Link
+                                            href={item.href()}
+                                            onClick={onNavigate}
+                                            aria-current={active ? 'page' : undefined}
+                                            className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition focus-visible:outline-2 focus-visible:outline-white ${
+                                                active
+                                                    ? 'bg-white/15 text-white'
+                                                    : 'text-primary-100 hover:bg-white/10 hover:text-white'
+                                            }`}
+                                        >
+                                            <Icon path={item.icon} />
+                                            {item.label}
+                                        </Link>
+                                    </li>
+                                );
+                            })}
+                        </ul>
                     </div>
-                </div>
+                ))}
             </nav>
 
-            {header && (
-                <header className="bg-white shadow">
-                    <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-                        {header}
-                    </div>
-                </header>
+            <div className="border-t border-white/10 p-4">
+                <div className="px-2 pb-3">
+                    <p className="truncate text-sm font-semibold">{auth.user.name}</p>
+                    <p className="truncate text-xs text-primary-200">
+                        {role ?? 'No role assigned'}
+                    </p>
+                </div>
+                <div className="space-y-1">
+                    <Link
+                        href={route('profile.edit')}
+                        onClick={onNavigate}
+                        className="block rounded-lg px-3 py-2 text-sm text-primary-100 hover:bg-white/10 hover:text-white focus-visible:outline-2 focus-visible:outline-white"
+                    >
+                        Profile
+                    </Link>
+                    <Link
+                        href={route('logout')}
+                        method="post"
+                        as="button"
+                        className="block w-full rounded-lg px-3 py-2 text-start text-sm text-primary-100 hover:bg-white/10 hover:text-white focus-visible:outline-2 focus-visible:outline-white"
+                    >
+                        Log out
+                    </Link>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function FlashMessages() {
+    const { flash } = usePage().props;
+
+    if (!flash?.success && !flash?.error) {
+        return null;
+    }
+
+    return (
+        <div className="space-y-3 px-4 pt-6 sm:px-6 lg:px-8">
+            {flash.success && (
+                <div
+                    role="status"
+                    className="rounded-lg bg-green-50 px-4 py-3 text-sm font-medium text-green-700 ring-1 ring-green-200"
+                >
+                    {flash.success}
+                </div>
+            )}
+            {flash.error && (
+                <div
+                    role="alert"
+                    className="rounded-lg bg-red-50 px-4 py-3 text-sm font-medium text-red-700 ring-1 ring-red-200"
+                >
+                    {flash.error}
+                </div>
+            )}
+        </div>
+    );
+}
+
+export default function AuthenticatedLayout({ header, children }) {
+    const [menuOpen, setMenuOpen] = useState(false);
+
+    return (
+        <div className="min-h-screen bg-gray-50">
+            {/* Desktop sidebar */}
+            <aside className="fixed inset-y-0 start-0 z-30 hidden w-64 lg:block">
+                <SidebarContent />
+            </aside>
+
+            {/* Mobile top bar and off-canvas sidebar */}
+            <div className="sticky top-0 z-20 flex items-center gap-3 bg-primary-900 px-4 py-3 text-white lg:hidden">
+                <button
+                    type="button"
+                    onClick={() => setMenuOpen(true)}
+                    aria-label="Open menu"
+                    aria-expanded={menuOpen}
+                    className="rounded-md p-1.5 hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-white"
+                >
+                    <Icon path={icons.menu} className="h-6 w-6" />
+                </button>
+                <span className="font-semibold">{appName}</span>
+            </div>
+
+            {menuOpen && (
+                <div className="fixed inset-0 z-40 lg:hidden" role="dialog" aria-modal="true">
+                    <div
+                        className="absolute inset-0 bg-gray-900/50"
+                        onClick={() => setMenuOpen(false)}
+                        aria-hidden="true"
+                    />
+                    <aside className="relative h-full w-64 max-w-[80%]">
+                        <button
+                            type="button"
+                            onClick={() => setMenuOpen(false)}
+                            aria-label="Close menu"
+                            className="absolute end-2 top-3 z-10 rounded-md p-1.5 text-white hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-white"
+                        >
+                            <Icon path={icons.close} className="h-5 w-5" />
+                        </button>
+                        <SidebarContent onNavigate={() => setMenuOpen(false)} />
+                    </aside>
+                </div>
             )}
 
-            <main>{children}</main>
+            <div className="lg:ps-64">
+                {header && (
+                    <header className="border-b border-gray-200 bg-white">
+                        <div className="px-4 py-5 sm:px-6 lg:px-8">{header}</div>
+                    </header>
+                )}
+
+                <FlashMessages />
+
+                <main className="px-4 py-6 sm:px-6 lg:px-8">{children}</main>
+            </div>
         </div>
     );
 }

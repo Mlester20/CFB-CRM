@@ -25,14 +25,22 @@ class HandleInertiaRequests extends Middleware
     /**
      * Define the props that are shared by default.
      *
+     * Only the signed-in user's own identity, role and permissions are shared.
+     *
      * @return array<string, mixed>
      */
     public function share(Request $request): array
     {
+        $user = $request->user();
+
         return [
             ...parent::share($request),
             'auth' => [
-                'user' => $request->user()?->only('id', 'name', 'email'),
+                'user' => $user?->only('id', 'name', 'email'),
+                'role' => $user?->getRoleNames()->first(),
+                'permissions' => $user
+                    ? $user->getAllPermissions()->pluck('name')->values()->all()
+                    : [],
             ],
             'flash' => [
                 'success' => fn () => $request->session()->get('success'),

@@ -52,7 +52,7 @@ class AuthenticationTest extends TestCase
     {
         $user = User::factory()->create();
 
-        $this->actingAs($user)->get('/dashboard')->assertInertia(fn (Assert $page) => $page
+        $this->actingAs($user)->get('/profile')->assertInertia(fn (Assert $page) => $page
             ->where('auth.user', [
                 'id' => $user->id,
                 'name' => $user->name,
