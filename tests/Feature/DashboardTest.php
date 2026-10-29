@@ -18,9 +18,14 @@ class DashboardTest extends TestCase
 
     private const LEADS = ['conversion', 'engagement', 'activity', 'sources'];
 
+    private const DEALS = ['pipelineStages', 'topOpenDeals'];
+
+    private const CONTACTS = ['topContacts'];
+
     private const WIDGETS = [
         'pipeline', 'weeklyRevenue', 'revenueGoal',
         'conversion', 'engagement', 'activity', 'sources',
+        'topContacts', 'pipelineStages', 'topOpenDeals',
         'followUps', 'insights',
     ];
 
@@ -55,10 +60,10 @@ class DashboardTest extends TestCase
     public static function widgetsByRole(): array
     {
         return [
-            'Admin' => ['Admin', [...self::REVENUE, ...self::LEADS, 'followUps', 'insights']],
-            'Sales Manager' => ['Sales Manager', [...self::REVENUE, ...self::LEADS, 'followUps', 'insights']],
-            'Sales Rep' => ['Sales Rep', [...self::LEADS, 'followUps', 'insights']],
-            'Viewer' => ['Viewer', [...self::LEADS, 'followUps']],
+            'Admin' => ['Admin', [...self::REVENUE, ...self::LEADS, ...self::DEALS, ...self::CONTACTS, 'followUps', 'insights']],
+            'Sales Manager' => ['Sales Manager', [...self::REVENUE, ...self::LEADS, ...self::DEALS, ...self::CONTACTS, 'followUps', 'insights']],
+            'Sales Rep' => ['Sales Rep', [...self::LEADS, ...self::DEALS, ...self::CONTACTS, 'followUps', 'insights']],
+            'Viewer' => ['Viewer', [...self::LEADS, ...self::DEALS, ...self::CONTACTS, 'followUps']],
         ];
     }
 
@@ -79,6 +84,9 @@ class DashboardTest extends TestCase
             $service->weeklyRevenue()['amount'],
             $service->revenueGoal()['closed_won'],
             $service->revenueGoal()['target'],
+            ...array_column($service->pipelineStages(withValue: true)['items'], 'value'),
+            ...array_column($service->topOpenDeals(withValue: true), 'value'),
+            ...array_column($service->leadActivity(withValue: true), 'value'),
         ];
 
         foreach (['Sales Rep', 'Viewer'] as $role) {
@@ -96,6 +104,67 @@ class DashboardTest extends TestCase
             foreach ($props['activity'] as $row) {
                 $this->assertArrayNotHasKey('value', $row, "{$role} must not receive lead values");
             }
+
+            foreach ($props['pipelineStages']['items'] as $stage) {
+                $this->assertArrayNotHasKey('value', $stage, "{$role} must not receive stage values");
+            }
+
+            foreach ($props['topOpenDeals'] as $deal) {
+                $this->assertArrayNotHasKey('value', $deal, "{$role} must not receive deal values");
+            }
+        }
+    }
+
+    public function test_stage_percentages_without_revenue_are_based_on_lead_counts(): void
+    {
+        $props = $this->props($this->userWithRole('Viewer'));
+        $total = $props['pipelineStages']['total'];
+
+        foreach ($props['pipelineStages']['items'] as $stage) {
+            $this->assertEqualsWithDelta($stage['count'] / $total * 100, $stage['percent'], 0.1);
+        }
+    }
+
+    public function test_roles_with_revenue_get_stage_and_deal_values(): void
+    {
+        foreach (['Admin', 'Sales Manager'] as $role) {
+            $props = $this->props($this->userWithRole($role));
+
+            foreach ($props['pipelineStages']['items'] as $stage) {
+                $this->assertArrayHasKey('value', $stage);
+            }
+
+            $values = array_column($props['topOpenDeals'], 'value');
+            $this->assertCount(5, $values);
+            $sorted = $values;
+            rsort($sorted);
+            $this->assertSame($sorted, $values, 'Top open deals are listed largest first');
+        }
+    }
+
+    public function test_new_widgets_follow_their_own_permissions(): void
+    {
+        $user = $this->userWithRole('Sales Rep');
+
+        $role = Role::findByName('Sales Rep');
+        $role->revokePermissionTo('contacts.view');
+        $widgets = $this->widgetsIn($this->props($user->fresh()));
+        $this->assertNotContains('topContacts', $widgets);
+        $this->assertContains('pipelineStages', $widgets);
+
+        $role->revokePermissionTo('deals.view');
+        $widgets = $this->widgetsIn($this->props($user->fresh()));
+        $this->assertNotContains('pipelineStages', $widgets);
+        $this->assertNotContains('topOpenDeals', $widgets);
+        $this->assertContains('conversion', $widgets);
+    }
+
+    public function test_follow_ups_carry_a_priority(): void
+    {
+        $props = $this->props($this->userWithRole('Viewer'));
+
+        foreach ($props['followUps'] as $item) {
+            $this->assertContains($item['priority'], ['High', 'Medium', 'Low']);
         }
     }
 
@@ -133,7 +202,7 @@ class DashboardTest extends TestCase
 
         Role::findByName('Viewer')->revokePermissionTo(['leads.view', 'tasks.view']);
         $widgets = $this->widgetsIn($this->props($user->fresh()));
-        $this->assertSame(['insights'], $widgets);
+        $this->assertEqualsCanonicalizing(['insights', ...self::DEALS, ...self::CONTACTS], $widgets);
     }
 
     public function test_a_user_with_only_dashboard_view_receives_no_widget_data(): void

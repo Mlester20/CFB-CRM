@@ -12,7 +12,10 @@ import FollowUps from './Dashboard/Partials/FollowUps';
 import LeadActivity from './Dashboard/Partials/LeadActivity';
 import LeadSources from './Dashboard/Partials/LeadSources';
 import PipelineGoal from './Dashboard/Partials/PipelineGoal';
+import PipelineStages from './Dashboard/Partials/PipelineStages';
 import RevenueGoal from './Dashboard/Partials/RevenueGoal';
+import TopContacts from './Dashboard/Partials/TopContacts';
+import TopOpenDeals from './Dashboard/Partials/TopOpenDeals';
 import WeeklyRevenue from './Dashboard/Partials/WeeklyRevenue';
 
 // Static class names (Tailwind cannot see dynamically built ones).
@@ -39,17 +42,20 @@ export default function Dashboard(props) {
         has(props.weeklyRevenue) && <WeeklyRevenue key="weekly" data={props.weeklyRevenue} />,
         has(props.conversion) && <Conversion key="conversion" data={props.conversion} />,
         has(props.followUps) && <FollowUps key="followUps" data={props.followUps} />,
+        has(props.topContacts) && <TopContacts key="topContacts" data={props.topContacts} />,
     ].filter(Boolean);
 
     const center = [
         has(props.engagement) && <Engagement key="engagement" data={props.engagement} />,
         has(props.activity) && <LeadActivity key="activity" data={props.activity} />,
+        has(props.pipelineStages) && <PipelineStages key="pipelineStages" data={props.pipelineStages} />,
     ].filter(Boolean);
 
     const right = [
         has(props.revenueGoal) && <RevenueGoal key="revenueGoal" data={props.revenueGoal} />,
         has(props.insights) && <AiInsights key="insights" data={props.insights} />,
         has(props.sources) && <LeadSources key="sources" data={props.sources} />,
+        has(props.topOpenDeals) && <TopOpenDeals key="topOpenDeals" data={props.topOpenDeals} />,
     ].filter(Boolean);
 
     // Columns left empty by permissions are dropped, so the others reflow.
@@ -80,7 +86,7 @@ export default function Dashboard(props) {
                         </span>
 
                         {can('leads.create') && (
-                            <ComingSoon tooltip="Leads module coming soon">
+                            <ComingSoon tooltip="Leads module coming soon" align="end">
                                 <Icon path={icons.plus} className="h-4 w-4" />
                                 Add New Lead
                             </ComingSoon>

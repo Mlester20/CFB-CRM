@@ -39,6 +39,16 @@ class DashboardController extends Controller
             $props['sources'] = $dashboard->leadSources();
         }
 
+        if ($user->can('contacts.view')) {
+            $props['topContacts'] = $dashboard->topContacts();
+        }
+
+        if ($user->can('deals.view')) {
+            // Both carry deal values, which are money: only with the revenue permission.
+            $props['pipelineStages'] = $dashboard->pipelineStages(withValue: $canRevenue);
+            $props['topOpenDeals'] = $dashboard->topOpenDeals(withValue: $canRevenue);
+        }
+
         if ($user->can('tasks.view')) {
             $props['followUps'] = $dashboard->followUps();
         }

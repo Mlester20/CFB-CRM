@@ -171,15 +171,15 @@ class DashboardService
     /**
      * Follow-ups due soon. Needs tasks.view.
      *
-     * @return list<array{id: int, title: string, contact: string, due_date: string, overdue: bool}>
+     * @return list<array{id: int, title: string, contact: string, due_date: string, overdue: bool, priority: string}>
      */
     public function followUps(): array
     {
         $rows = [
-            ['Send revised quotation', 'Angela Reyes', -2],
-            ['Call about contract terms', 'Paolo Garcia', 0],
-            ['Schedule product demo', 'Maria Santos', 1],
-            ['Follow up on proposal', 'Juan Dela Cruz', 3],
+            ['Send revised quotation', 'Angela Reyes', -2, 'High'],
+            ['Call about contract terms', 'Paolo Garcia', 0, 'High'],
+            ['Schedule product demo', 'Maria Santos', 1, 'Medium'],
+            ['Follow up on proposal', 'Juan Dela Cruz', 3, 'Low'],
         ];
 
         return array_map(fn (array $row, int $index) => [
@@ -188,7 +188,106 @@ class DashboardService
             'contact' => $row[1],
             'due_date' => now()->addDays($row[2])->toDateString(),
             'overdue' => $row[2] < 0,
+            'priority' => $row[3],
         ], $rows, array_keys($rows));
+    }
+
+    /**
+     * The people you work with most, as avatar initials. Needs contacts.view.
+     *
+     * `more` is how many further contacts are not listed.
+     *
+     * @return array{items: list<array{id: int, name: string}>, more: int}
+     */
+    public function topContacts(): array
+    {
+        $names = ['Maria Santos', 'Juan Dela Cruz', 'Angela Reyes', 'Paolo Garcia', 'Liza Mendoza'];
+
+        return [
+            'items' => array_map(
+                fn (string $name, int $index) => ['id' => $index + 1, 'name' => $name],
+                $names,
+                array_keys($names),
+            ),
+            'more' => 22,
+        ];
+    }
+
+    /**
+     * Leads per pipeline stage. Needs deals.view.
+     *
+     * `percent` is the stage's share of the total: of the total value for
+     * users with dashboard.view-revenue, of the lead count for everyone else.
+     * The peso `value` is money, so it is only included with $withValue.
+     *
+     * @return array{total: int, items: list<array<string, mixed>>}
+     */
+    public function pipelineStages(bool $withValue): array
+    {
+        $stages = [
+            ['New', 34, 902000],
+            ['Qualified', 41, 1380000],
+            ['Proposal', 22, 1820000],
+            ['Won', 18, 2850000],
+            ['Lost', 13, 420000],
+        ];
+
+        $totalCount = array_sum(array_column($stages, 1));
+        $totalValue = array_sum(array_column($stages, 2));
+
+        $items = array_map(function (array $stage) use ($withValue, $totalCount, $totalValue) {
+            [$name, $count, $value] = $stage;
+
+            $item = [
+                'stage' => $name,
+                'count' => $count,
+                'percent' => round(($withValue ? $value / $totalValue : $count / $totalCount) * 100, 1),
+            ];
+
+            if ($withValue) {
+                $item['value'] = (float) $value;
+            }
+
+            return $item;
+        }, $stages);
+
+        return ['total' => $totalCount, 'items' => $items];
+    }
+
+    /**
+     * The five biggest open deals, largest first. Needs deals.view.
+     *
+     * The deal value is money, so it is only included with $withValue.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function topOpenDeals(bool $withValue): array
+    {
+        $deals = [
+            ['Angela Reyes', 'Reyes & Co.', 'Proposal', 520000],
+            ['Benjie Tan', 'Tan Holdings', 'Proposal', 480000],
+            ['Rosa Villanueva', 'Villanueva Corp.', 'Qualified', 395000],
+            ['Juan Dela Cruz', 'Dela Cruz Logistics', 'Qualified', 240000],
+            ['Marco Bautista', 'Bautista Steel', 'New', 185000],
+        ];
+
+        return array_map(function (array $deal, int $index) use ($withValue) {
+            [$name, $company, $stage, $value] = $deal;
+
+            $item = [
+                'id' => $index + 1,
+                'rank' => $index + 1,
+                'name' => $name,
+                'company' => $company,
+                'stage' => $stage,
+            ];
+
+            if ($withValue) {
+                $item['value'] = (float) $value;
+            }
+
+            return $item;
+        }, $deals, array_keys($deals));
     }
 
     /**

@@ -34,6 +34,12 @@
     }
 }
 
+@keyframes chart-grow-x {
+    from {
+        transform: scaleX(0);
+    }
+}
+
 @keyframes chart-draw {
     from {
         stroke-dashoffset: 1;
@@ -59,6 +65,11 @@
     animation: chart-grow 0.6s ease-out both;
 }
 
+.chart-grow-x {
+    transform-origin: left;
+    animation: chart-grow-x 0.7s ease-out both;
+}
+
 .chart-line {
     stroke-dasharray: 1;
     animation: chart-draw 1s ease-out both;
@@ -76,6 +87,7 @@
 
 @media (prefers-reduced-motion: reduce) {
     .chart-bar,
+    .chart-grow-x,
     .chart-line,
     .chart-fade,
     .chart-pop {

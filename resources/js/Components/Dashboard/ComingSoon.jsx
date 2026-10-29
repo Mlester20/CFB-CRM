@@ -6,11 +6,17 @@ const variants = {
     ghost: 'bg-sky-50 text-sky-800',
 };
 
+const tooltipAlign = {
+    center: 'start-1/2 -translate-x-1/2',
+    end: 'end-0',
+};
+
 /**
  * A button for something that does not exist yet. It looks muted, is marked
  * aria-disabled, does nothing, and explains why in a tooltip on hover or focus.
+ * Use align="end" for buttons at the right edge so the tooltip stays on screen.
  */
-export default function ComingSoon({ children, tooltip, variant = 'primary', className = '' }) {
+export default function ComingSoon({ children, tooltip, variant = 'primary', align = 'center', className = '' }) {
     const id = useId();
 
     return (
@@ -27,7 +33,7 @@ export default function ComingSoon({ children, tooltip, variant = 'primary', cla
             <span
                 id={id}
                 role="tooltip"
-                className="pointer-events-none absolute -top-9 start-1/2 z-30 -translate-x-1/2 whitespace-nowrap rounded-md bg-gray-900 px-2.5 py-1 text-xs font-medium text-white opacity-0 shadow-lg transition-opacity group-focus-within:opacity-100 group-hover:opacity-100"
+                className={`pointer-events-none absolute -top-9 z-30 ${tooltipAlign[align]} whitespace-nowrap rounded-md bg-gray-900 px-2.5 py-1 text-xs font-medium text-white opacity-0 shadow-lg transition-opacity group-focus-within:opacity-100 group-hover:opacity-100`}
             >
                 {tooltip}
             </span>
