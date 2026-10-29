@@ -83,6 +83,9 @@ function LeadFormBody({ lead, options, owners, submitUrl, onClose, registerClose
         (editing ? put : post)(submitUrl, { preserveScroll: true });
     };
 
+    // "Assigned to" and "SAIMS customer" share a row when a user has both; alone, each takes the full width.
+    const pairSpan = canAssign && canLink ? 'sm:col-span-3' : 'sm:col-span-6';
+
     const field = (name) => ({
         id: `lead-${name}`,
         value: data[name] ?? '',
@@ -103,8 +106,8 @@ function LeadFormBody({ lead, options, owners, submitUrl, onClose, registerClose
     );
 
     return (
-        <form onSubmit={submit} noValidate>
-            <div className="flex items-start justify-between gap-4 px-6 pt-6">
+        <form onSubmit={submit} noValidate className="flex max-h-[calc(100dvh-3rem)] flex-col">
+            <div className="flex shrink-0 items-start justify-between gap-4 border-b border-gray-100 px-6 pb-4 pt-6">
                 <div className="min-w-0">
                     <h2 id="lead-form-title" className="text-xl font-bold text-gray-900">
                         {editing ? 'Edit lead' : 'New lead'}
@@ -123,8 +126,8 @@ function LeadFormBody({ lead, options, owners, submitUrl, onClose, registerClose
                 </button>
             </div>
 
-            <div className="grid gap-x-4 gap-y-4 px-6 py-5 sm:grid-cols-2">
-                <div className="sm:col-span-2">
+            <div className="grid min-h-0 flex-1 content-start gap-x-4 gap-y-4 overflow-y-auto px-6 py-5 sm:grid-cols-6">
+                <div className="sm:col-span-6">
                     <Field label="Name" htmlFor="lead-name" error={errors.name}>
                         <input
                             {...field('name')}
@@ -136,16 +139,23 @@ function LeadFormBody({ lead, options, owners, submitUrl, onClose, registerClose
                     </Field>
                 </div>
 
-                <Field label="Company" htmlFor="lead-company" error={errors.company}>
-                    <input {...field('company')} required autoComplete="off" placeholder="Company" />
-                </Field>
-                <Field label="Email" htmlFor="lead-email" error={errors.email}>
-                    <input {...field('email')} type="email" autoComplete="off" placeholder="email@company.com" />
-                </Field>
+                <div className="sm:col-span-3">
+                    <Field label="Company" htmlFor="lead-company" error={errors.company}>
+                        <input {...field('company')} required autoComplete="off" placeholder="Company" />
+                    </Field>
+                </div>
+                <div className="sm:col-span-3">
+                    <Field label="Email" htmlFor="lead-email" error={errors.email}>
+                        <input {...field('email')} type="email" autoComplete="off" placeholder="email@company.com" />
+                    </Field>
+                </div>
 
-                <Field label="Phone" htmlFor="lead-phone" error={errors.phone}>
-                    <input {...field('phone')} type="tel" autoComplete="off" placeholder="+63 900 000 0000" />
-                </Field>
+                <div className="sm:col-span-3">
+                    <Field label="Phone" htmlFor="lead-phone" error={errors.phone}>
+                        <input {...field('phone')} type="tel" autoComplete="off" placeholder="+63 900 000 0000" />
+                    </Field>
+                </div>
+                <div className="sm:col-span-3">
                 <Field label="Deal value (Php)" htmlFor="lead-value" error={errors.value}>
                     <div className="relative">
                         <span
@@ -165,14 +175,18 @@ function LeadFormBody({ lead, options, owners, submitUrl, onClose, registerClose
                         />
                     </div>
                 </Field>
+                </div>
 
-                <Field label="Stage" htmlFor="lead-stage" error={errors.stage}>
-                    {select('stage', options.stages)}
-                </Field>
-                <Field label="Priority" htmlFor="lead-priority" error={errors.priority}>
-                    {select('priority', options.priorities)}
-                </Field>
-
+                <div className="sm:col-span-2">
+                    <Field label="Stage" htmlFor="lead-stage" error={errors.stage}>
+                        {select('stage', options.stages)}
+                    </Field>
+                </div>
+                <div className="sm:col-span-2">
+                    <Field label="Priority" htmlFor="lead-priority" error={errors.priority}>
+                        {select('priority', options.priorities)}
+                    </Field>
+                </div>
                 <div className="sm:col-span-2">
                     <Field label="Source" htmlFor="lead-source" error={errors.source}>
                         {select('source', options.sources)}
@@ -180,7 +194,7 @@ function LeadFormBody({ lead, options, owners, submitUrl, onClose, registerClose
                 </div>
 
                 {canAssign && (
-                    <div className="sm:col-span-2">
+                    <div className={pairSpan}>
                         <Field label="Assigned to" htmlFor="lead-owner_id" error={errors.owner_id}>
                             <select {...field('owner_id')}>
                                 {owners.map((owner) => (
@@ -194,7 +208,7 @@ function LeadFormBody({ lead, options, owners, submitUrl, onClose, registerClose
                 )}
 
                 {canLink && (
-                    <div className="sm:col-span-2">
+                    <div className={pairSpan}>
                         <Field
                             label="SAIMS customer"
                             htmlFor="lead-saims_customer_id"
@@ -214,14 +228,14 @@ function LeadFormBody({ lead, options, owners, submitUrl, onClose, registerClose
                     </div>
                 )}
 
-                <div className="sm:col-span-2">
+                <div className="sm:col-span-6">
                     <Field label="Notes" htmlFor="lead-notes" error={errors.notes}>
-                        <textarea {...field('notes')} rows={4} placeholder="Context, next steps..." />
+                        <textarea {...field('notes')} rows={3} placeholder="Context, next steps..." />
                     </Field>
                 </div>
             </div>
 
-            <div className="border-t border-gray-100 bg-gray-50/70 px-6 py-4">
+            <div className="shrink-0 border-t border-gray-100 bg-gray-50/70 px-6 py-4">
                 {confirmDiscard ? (
                     <div role="alertdialog" aria-labelledby="discard-title" className="flex flex-wrap items-center gap-3">
                         <p id="discard-title" className="me-auto text-sm font-medium text-gray-800">
@@ -259,7 +273,7 @@ export default function LeadForm({ show, lead, options, owners, submitUrl, onClo
     const closeRef = useRef(null);
 
     return (
-        <Modal show={show} maxWidth="2xl" onClose={() => (closeRef.current ? closeRef.current() : onClose())}>
+        <Modal show={show} maxWidth="3xl" onClose={() => (closeRef.current ? closeRef.current() : onClose())}>
             <LeadFormBody
                 key={lead?.id ?? 'new'}
                 lead={lead}
