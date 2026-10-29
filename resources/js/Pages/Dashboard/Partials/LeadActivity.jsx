@@ -26,34 +26,34 @@ export default function LeadActivity({ data }) {
                 <EmptyState>No leads yet</EmptyState>
             ) : (
                 <div className="@container -mx-2">
-                    <table className="w-full text-sm">
+                    <table className="w-full table-fixed text-sm">
                         <caption className="sr-only">Most recent lead activity</caption>
                         <thead>
                             <tr className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">
                                 <th scope="col" className="px-2 pb-2 text-start font-semibold">Lead</th>
-                                <th scope="col" className="hidden px-2 pb-2 text-start font-semibold @lg:table-cell">
+                                <th scope="col" className="hidden w-28 px-2 pb-2 text-start font-semibold @lg:table-cell">
                                     Date
                                 </th>
                                 <th
                                     scope="col"
-                                    className={`px-2 pb-2 text-start font-semibold ${showValue ? 'hidden @md:table-cell' : ''}`}
+                                    className={`w-28 px-2 pb-2 text-start font-semibold ${showValue ? 'hidden @md:table-cell' : ''}`}
                                 >
                                     Status
                                 </th>
                                 {showValue && (
-                                    <th scope="col" className="px-2 pb-2 text-end font-semibold">Value</th>
+                                    <th scope="col" className="w-36 px-2 pb-2 text-end font-semibold">Value</th>
                                 )}
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
                             {data.map((row) => (
                                 <tr key={row.id}>
-                                    <td className="px-2 py-3">
+                                    <td className="overflow-hidden px-2 py-3">
                                         <div className="flex items-center gap-3">
                                             <Avatar name={row.name} />
-                                            <div className="min-w-0">
-                                                <p className="truncate font-semibold text-gray-900">{row.name}</p>
-                                                <p className="truncate text-xs text-gray-500">{row.company}</p>
+                                            <div className="min-w-0 flex-1">
+                                                <p className="truncate font-semibold text-gray-900" title={row.name}>{row.name}</p>
+                                                <p className="truncate text-xs text-gray-500" title={row.company}>{row.company}</p>
                                                 <p className="text-xs text-gray-500 @lg:hidden">
                                                     {formatDate(row.date)}
                                                 </p>

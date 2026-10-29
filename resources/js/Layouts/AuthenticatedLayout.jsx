@@ -101,7 +101,7 @@ function SidebarContent({ onNavigate }) {
 
     return (
         <div className="flex h-full flex-col bg-linear-to-b from-primary-950 via-primary-900 to-primary-800 text-white">
-            <div className="flex items-center gap-3 px-6 py-5">
+            <div className="flex items-center gap-3 px-6 py-5 [@media(max-height:760px)]:py-3">
                 <span
                     className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/15 ring-1 ring-white/30"
                     aria-hidden="true"
@@ -111,15 +111,15 @@ function SidebarContent({ onNavigate }) {
                 <span className="text-lg font-semibold">{appName}</span>
             </div>
 
-            <nav className="flex-1 space-y-6 overflow-y-auto px-3 py-4" aria-label="Main">
+            <nav className="sidebar-scroll flex-1 space-y-6 overflow-y-auto px-3 py-4 [@media(max-height:760px)]:space-y-3 [@media(max-height:760px)]:py-2" aria-label="Main">
                 {sections.map((group) => (
                     <div key={group.section ?? 'main'}>
                         {group.section && (
-                            <p className="px-3 pb-2 text-xs font-semibold uppercase tracking-wider text-primary-200/70">
+                            <p className="px-3 pb-2 text-xs font-semibold uppercase tracking-wider text-primary-200/70 [@media(max-height:760px)]:pb-1">
                                 {group.section}
                             </p>
                         )}
-                        <ul className="space-y-1">
+                        <ul className="space-y-1 [@media(max-height:760px)]:space-y-0.5">
                             {group.items.map((item) => {
                                 const active = item.active();
 
@@ -129,7 +129,7 @@ function SidebarContent({ onNavigate }) {
                                             href={item.href()}
                                             onClick={onNavigate}
                                             aria-current={active ? 'page' : undefined}
-                                            className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition focus-visible:outline-2 focus-visible:outline-white ${
+                                            className={`flex items-center gap-3 rounded-lg px-3 py-2.5 [@media(max-height:760px)]:py-1.5 text-sm font-medium transition focus-visible:outline-2 focus-visible:outline-white ${
                                                 active
                                                     ? 'bg-white/15 text-white'
                                                     : 'text-primary-100 hover:bg-white/10 hover:text-white'
@@ -146,18 +146,18 @@ function SidebarContent({ onNavigate }) {
                 ))}
             </nav>
 
-            <div className="border-t border-white/10 p-4">
-                <div className="px-2 pb-3">
+            <div className="border-t border-white/10 p-4 [@media(max-height:760px)]:p-3">
+                <div className="px-2 pb-3 [@media(max-height:760px)]:pb-1">
                     <p className="truncate text-sm font-semibold">{auth.user.name}</p>
                     <p className="truncate text-xs text-primary-200">
                         {role ?? 'No role assigned'}
                     </p>
                 </div>
-                <div className="space-y-1">
+                <div className="flex flex-col gap-1 [@media(max-height:760px)]:flex-row">
                     <Link
                         href={route('profile.edit')}
                         onClick={onNavigate}
-                        className="block rounded-lg px-3 py-2 text-sm text-primary-100 hover:bg-white/10 hover:text-white focus-visible:outline-2 focus-visible:outline-white"
+                        className="block flex-1 rounded-lg px-3 py-2 text-sm text-primary-100 hover:bg-white/10 hover:text-white focus-visible:outline-2 focus-visible:outline-white"
                     >
                         Profile
                     </Link>
@@ -165,7 +165,7 @@ function SidebarContent({ onNavigate }) {
                         href={route('logout')}
                         method="post"
                         as="button"
-                        className="block w-full rounded-lg px-3 py-2 text-start text-sm text-primary-100 hover:bg-white/10 hover:text-white focus-visible:outline-2 focus-visible:outline-white"
+                        className="block w-full flex-1 rounded-lg px-3 py-2 text-start text-sm text-primary-100 hover:bg-white/10 hover:text-white focus-visible:outline-2 focus-visible:outline-white"
                     >
                         Log out
                     </Link>
