@@ -15,6 +15,17 @@ export default function Welcome({ auth, laravelVersion, phpVersion }) {
     return (
         <>
             <Head title="Welcome" />
+            {/* TAILWIND-PROOF-START (temporary) */}
+            <div
+                id="tailwind-proof"
+                className="flex flex-col gap-2 bg-emerald-600 p-4 text-white hover:bg-emerald-700 md:flex-row md:items-center md:justify-between dark:bg-indigo-700 dark:hover:bg-indigo-800"
+            >
+                <span className="font-semibold">Tailwind v4 is working</span>
+                <span className="text-sm opacity-80">
+                    green + stacked on mobile, row at md+, hover darkens, indigo in dark mode
+                </span>
+            </div>
+            {/* TAILWIND-PROOF-END */}
             <div className="bg-gray-50 text-black/50 dark:bg-black dark:text-white/50">
                 <img
                     id="background"
