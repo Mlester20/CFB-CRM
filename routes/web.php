@@ -3,6 +3,7 @@
 use App\Http\Controllers\Admin\RoleController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\LeadController;
 use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
 
@@ -12,6 +13,18 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/dashboard', DashboardController::class)
         ->middleware('permission:dashboard.view')
         ->name('dashboard');
+
+    Route::prefix('leads')->name('leads.')->middleware('permission:leads.view')->group(function () {
+        Route::get('/', [LeadController::class, 'index'])->name('index');
+        Route::get('export', [LeadController::class, 'export'])->name('export');
+        Route::get('create', [LeadController::class, 'create'])->name('create');
+        Route::post('/', [LeadController::class, 'store'])->name('store');
+        Route::delete('/', [LeadController::class, 'bulkDestroy'])->name('bulk-destroy');
+        Route::get('{lead}', [LeadController::class, 'show'])->whereNumber('lead')->name('show');
+        Route::get('{lead}/edit', [LeadController::class, 'edit'])->whereNumber('lead')->name('edit');
+        Route::put('{lead}', [LeadController::class, 'update'])->whereNumber('lead')->name('update');
+        Route::delete('{lead}', [LeadController::class, 'destroy'])->whereNumber('lead')->name('destroy');
+    });
 
     Route::prefix('admin')->name('admin.')->group(function () {
         Route::middleware('permission:users.manage')->group(function () {

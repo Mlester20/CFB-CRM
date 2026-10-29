@@ -29,10 +29,12 @@ return Application::configure(basePath: dirname(__DIR__))
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->respond(function ($response, Throwable $e, $request) {
-            if ($response->getStatusCode() === 403 && ! $request->expectsJson()) {
-                return Inertia::render('Errors/Forbidden')
+            $status = $response->getStatusCode();
+
+            if (in_array($status, [403, 404], true) && ! $request->expectsJson()) {
+                return Inertia::render($status === 403 ? 'Errors/Forbidden' : 'Errors/NotFound')
                     ->toResponse($request)
-                    ->setStatusCode(403);
+                    ->setStatusCode($status);
             }
 
             return $response;

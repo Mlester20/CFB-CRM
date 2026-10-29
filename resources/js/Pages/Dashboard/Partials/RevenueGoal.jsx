@@ -3,13 +3,13 @@ import ChartCard from '@/Components/Dashboard/ChartCard';
 import ComingSoon from '@/Components/Dashboard/ComingSoon';
 import StatBadge from '@/Components/Dashboard/StatBadge';
 import { EmptyState, Skeleton } from '@/Components/Dashboard/States';
-import { Icon, icons } from '@/Components/Ui';
+import { ButtonLink, Icon, icons } from '@/Components/Ui';
 import usePermission from '@/Hooks/usePermission';
 import { formatPhp, formatPhpCompact } from '@/Utils/format';
 
 export default function RevenueGoal({ data }) {
     const { can } = usePermission();
-    const canAddLead = can('leads.create');
+    const canAddLead = can('leads.create') && can('leads.view');
     const canAddTask = can('tasks.create');
 
     const progress = data ? Math.min(Math.round((data.closed_won / data.target) * 100), 100) : 0;
@@ -63,10 +63,10 @@ export default function RevenueGoal({ data }) {
                     {(canAddLead || canAddTask) && (
                         <div className="mt-5 flex flex-wrap gap-3">
                             {canAddLead && (
-                                <ComingSoon tooltip="Leads module coming soon" variant="ghost">
+                                <ButtonLink href={route('leads.create')} variant="ghost">
                                     <Icon path={icons.plus} className="h-4 w-4" />
                                     Add Lead
-                                </ComingSoon>
+                                </ButtonLink>
                             )}
                             {canAddTask && (
                                 <ComingSoon tooltip="Tasks module coming soon" variant="ghost">

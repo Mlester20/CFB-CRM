@@ -55,3 +55,23 @@ export function initials(name) {
         .map((part) => part[0].toUpperCase())
         .join('');
 }
+
+/** "just now", "5 min ago", "3 hours ago", "yesterday", "12 days ago", then a date. */
+export function formatRelative(iso, now = new Date()) {
+    const then = new Date(iso);
+    const seconds = Math.round((now - then) / 1000);
+
+    if (seconds < 45) return 'just now';
+
+    const minutes = Math.round(seconds / 60);
+    if (minutes < 60) return `${minutes} min ago`;
+
+    const hours = Math.round(minutes / 60);
+    if (hours < 24) return `${hours} ${hours === 1 ? 'hour' : 'hours'} ago`;
+
+    const days = Math.round(hours / 24);
+    if (days === 1) return 'yesterday';
+    if (days < 30) return `${days} days ago`;
+
+    return formatDate(then.toISOString().slice(0, 10));
+}

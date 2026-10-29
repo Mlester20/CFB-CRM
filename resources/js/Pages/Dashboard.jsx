@@ -1,6 +1,5 @@
 import Card from '@/Components/Dashboard/Card';
-import ComingSoon from '@/Components/Dashboard/ComingSoon';
-import { Icon, icons } from '@/Components/Ui';
+import { ButtonLink, Icon, icons } from '@/Components/Ui';
 import usePermission from '@/Hooks/usePermission';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { formatDate } from '@/Utils/format';
@@ -85,11 +84,11 @@ export default function Dashboard(props) {
                             {formatDate(period.from)} – {formatDate(period.to)}
                         </span>
 
-                        {can('leads.create') && (
-                            <ComingSoon tooltip="Leads module coming soon" align="end">
+                        {can('leads.create') && can('leads.view') && (
+                            <ButtonLink href={route('leads.create')}>
                                 <Icon path={icons.plus} className="h-4 w-4" />
                                 Add New Lead
-                            </ComingSoon>
+                            </ButtonLink>
                         )}
                     </div>
                 </div>

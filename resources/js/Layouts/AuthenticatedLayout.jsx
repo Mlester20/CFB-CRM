@@ -18,6 +18,13 @@ const navigation = [
                 active: () => route().current('dashboard'),
                 permission: 'dashboard.view',
             },
+            {
+                label: 'Leads',
+                icon: icons.leads,
+                href: () => route('leads.index'),
+                active: () => route().current('leads.*'),
+                permission: 'leads.view',
+            },
         ],
     },
     {
