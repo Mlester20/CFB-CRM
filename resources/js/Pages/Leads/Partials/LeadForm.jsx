@@ -1,5 +1,7 @@
+import SaimsCustomerPicker from '@/Components/Leads/SaimsCustomerPicker';
 import Modal from '@/Components/Modal';
 import { Button, Field, Icon, icons, inputClass } from '@/Components/Ui';
+import usePermission from '@/Hooks/usePermission';
 import { useForm, usePage } from '@inertiajs/react';
 import { useEffect, useRef, useState } from 'react';
 
@@ -24,6 +26,9 @@ function LeadFormBody({ lead, options, owners, submitUrl, onClose, registerClose
     const { auth } = usePage().props;
     const editing = lead !== null;
     const canAssign = owners.length > 0;
+    // The SAIMS customer field only exists for a user who may read SAIMS customers.
+    const canLink = usePermission().can('saims.customers');
+    const [linkedName, setLinkedName] = useState(lead?.saims_customer?.name ?? null);
     const [confirmDiscard, setConfirmDiscard] = useState(false);
 
     const { data, setData, post, put, processing, errors, isDirty } = useForm({
@@ -37,6 +42,7 @@ function LeadFormBody({ lead, options, owners, submitUrl, onClose, registerClose
         source: lead?.source ?? 'website',
         notes: lead?.notes ?? '',
         ...(canAssign ? { owner_id: lead?.owner?.id ?? auth.user.id } : {}),
+        ...(canLink ? { saims_customer_id: lead?.saims_customer?.id ?? null } : {}),
     });
 
     // Esc, a click on the backdrop and the X all ask first when there is typed text.
@@ -183,6 +189,27 @@ function LeadFormBody({ lead, options, owners, submitUrl, onClose, registerClose
                                     </option>
                                 ))}
                             </select>
+                        </Field>
+                    </div>
+                )}
+
+                {canLink && (
+                    <div className="sm:col-span-2">
+                        <Field
+                            label="SAIMS customer"
+                            htmlFor="lead-saims_customer_id"
+                            error={errors.saims_customer_id}
+                            hint="Optional. Link this lead to a customer in SAIMS to see their orders and invoices."
+                        >
+                            <SaimsCustomerPicker
+                                id="lead-saims_customer_id"
+                                error={errors.saims_customer_id}
+                                value={data.saims_customer_id ? { id: data.saims_customer_id, name: linkedName } : null}
+                                onChange={(customer) => {
+                                    setData('saims_customer_id', customer?.id ?? null);
+                                    setLinkedName(customer?.name ?? null);
+                                }}
+                            />
                         </Field>
                     </div>
                 )}

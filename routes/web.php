@@ -5,6 +5,7 @@ use App\Http\Controllers\Admin\SaimsConnectionController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\LeadController;
+use App\Http\Controllers\LeadSaimsController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\Saims\CustomerController;
 use App\Http\Controllers\Saims\InvoiceController;
@@ -22,10 +23,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::prefix('leads')->name('leads.')->middleware('permission:leads.view')->group(function () {
         Route::get('/', [LeadController::class, 'index'])->name('index');
         Route::get('export', [LeadController::class, 'export'])->name('export');
+        Route::get('saims-customers', [LeadSaimsController::class, 'customers'])->middleware('throttle:30,1')->name('saims-customers');
         Route::get('create', [LeadController::class, 'create'])->name('create');
         Route::post('/', [LeadController::class, 'store'])->name('store');
         Route::delete('/', [LeadController::class, 'bulkDestroy'])->name('bulk-destroy');
         Route::get('{lead}', [LeadController::class, 'show'])->whereNumber('lead')->name('show');
+        Route::get('{lead}/saims', [LeadSaimsController::class, 'panel'])->whereNumber('lead')->middleware('throttle:60,1')->name('saims-panel');
         Route::get('{lead}/edit', [LeadController::class, 'edit'])->whereNumber('lead')->name('edit');
         Route::put('{lead}', [LeadController::class, 'update'])->whereNumber('lead')->name('update');
         Route::delete('{lead}', [LeadController::class, 'destroy'])->whereNumber('lead')->name('destroy');

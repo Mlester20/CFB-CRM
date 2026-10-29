@@ -13,9 +13,9 @@ export default function Conversion({ data }) {
                 <h2 id={id} className="text-base font-bold text-gray-900">
                     Conversion
                 </h2>
-                {data && <StatBadge value={data.change_percent} />}
+                {data && data.change_percent !== null && <StatBadge value={data.change_percent} />}
             </div>
-            <p className="mt-0.5 text-xs text-gray-500">Win rate</p>
+            <p className="mt-0.5 text-xs text-gray-500">Won ÷ (won + lost)</p>
 
             {data === null ? (
                 <div className="mt-4">
@@ -23,11 +23,9 @@ export default function Conversion({ data }) {
                 </div>
             ) : (
                 <>
-                    <p className="mt-3 text-3xl font-bold tracking-tight text-gray-900">
-                        {data.win_rate.toFixed(1)}%
-                    </p>
+                    <p className="mt-3 text-3xl font-bold tracking-tight text-gray-900">{data.win_rate.toFixed(1)}%</p>
                     <p className="mt-1 text-sm text-gray-600">
-                        {formatNumber(data.leads)} leads · {formatNumber(data.open_tasks)} open tasks
+                        {formatNumber(data.leads)} {data.leads === 1 ? 'lead' : 'leads'} · {formatNumber(data.open_leads)} open
                     </p>
                 </>
             )}

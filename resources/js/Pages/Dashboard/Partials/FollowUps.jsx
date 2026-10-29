@@ -11,7 +11,7 @@ const priorityStyles = {
 
 export default function FollowUps({ data }) {
     return (
-        <ChartCard title="Upcoming Follow-ups" caption="Tasks due soon">
+        <ChartCard sample title="Upcoming Follow-ups" caption="Tasks due soon">
             {data === null ? (
                 <WidgetSkeleton lines={3} />
             ) : data.length === 0 ? (

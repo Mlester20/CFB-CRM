@@ -1,9 +1,9 @@
 import Card from '@/Components/Dashboard/Card';
+import DateRangePicker from '@/Components/Dashboard/DateRangePicker';
 import { ButtonLink, Icon, icons } from '@/Components/Ui';
 import usePermission from '@/Hooks/usePermission';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { formatDate } from '@/Utils/format';
-import { Head } from '@inertiajs/react';
+import { Deferred, Head } from '@inertiajs/react';
 import AiInsights from './Dashboard/Partials/AiInsights';
 import Conversion from './Dashboard/Partials/Conversion';
 import Engagement from './Dashboard/Partials/Engagement';
@@ -36,9 +36,30 @@ export default function Dashboard(props) {
 
     const firstName = auth.user.name.split(' ')[0];
 
+    // Invoiced revenue comes from SAIMS and arrives after the page has opened (a deferred
+    // prop), so the rest of the dashboard never waits for SAIMS. Without saims.invoices the
+    // revenue widgets are lead-based and arrive with the page.
+    const weekly =
+        props.revenueSource === 'saims' ? (
+            <Deferred key="weekly" data="weeklyRevenue" fallback={<WeeklyRevenue data={null} />}>
+                <WeeklyRevenue data={props.weeklyRevenue} />
+            </Deferred>
+        ) : (
+            has(props.weeklyRevenue) && <WeeklyRevenue key="weekly" data={props.weeklyRevenue} />
+        );
+
+    const goal =
+        props.revenueSource === 'saims' ? (
+            <Deferred key="revenueGoal" data="revenueGoal" fallback={<RevenueGoal data={null} />}>
+                <RevenueGoal data={props.revenueGoal} />
+            </Deferred>
+        ) : (
+            has(props.revenueGoal) && <RevenueGoal key="revenueGoal" data={props.revenueGoal} />
+        );
+
     const left = [
         has(props.pipeline) && <PipelineGoal key="pipeline" data={props.pipeline} />,
-        has(props.weeklyRevenue) && <WeeklyRevenue key="weekly" data={props.weeklyRevenue} />,
+        weekly,
         has(props.conversion) && <Conversion key="conversion" data={props.conversion} />,
         has(props.followUps) && <FollowUps key="followUps" data={props.followUps} />,
         has(props.topContacts) && <TopContacts key="topContacts" data={props.topContacts} />,
@@ -51,7 +72,7 @@ export default function Dashboard(props) {
     ].filter(Boolean);
 
     const right = [
-        has(props.revenueGoal) && <RevenueGoal key="revenueGoal" data={props.revenueGoal} />,
+        goal,
         has(props.insights) && <AiInsights key="insights" data={props.insights} />,
         has(props.sources) && <LeadSources key="sources" data={props.sources} />,
         has(props.topOpenDeals) && <TopOpenDeals key="topOpenDeals" data={props.topOpenDeals} />,
@@ -78,11 +99,7 @@ export default function Dashboard(props) {
                     </div>
 
                     <div className="flex flex-wrap items-center gap-3">
-                        <span className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-xs ring-1 ring-slate-200">
-                            <Icon path={icons.calendar} className="h-4 w-4 text-sky-600" />
-                            <span className="sr-only">Period: </span>
-                            {formatDate(period.from)} – {formatDate(period.to)}
-                        </span>
+                        <DateRangePicker period={period} />
 
                         {can('leads.create') && can('leads.view') && (
                             <ButtonLink href={route('leads.create')}>

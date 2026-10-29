@@ -33,11 +33,38 @@ class LeadResource
             'value' => (float) $lead->value,
             'owner' => $lead->owner ? ['id' => $lead->owner->id, 'name' => $lead->owner->name] : null,
             'updated_at' => $lead->updated_at?->toIso8601String(),
+            ...self::saims($lead, $user),
             'can' => [
                 'update' => $gate->allows('update', $lead),
                 'delete' => $gate->allows('delete', $lead),
             ],
         ];
+    }
+
+    /**
+     * The SAIMS link. Only users with a saims.* permission learn that a lead is
+     * linked, and only a user with saims.customers sees which customer.
+     * Reading it is a local column: it never calls SAIMS.
+     *
+     * @return array<string, mixed>
+     */
+    private static function saims(Lead $lead, User $user): array
+    {
+        $hasAny = $user->canAny(['saims.customers', 'saims.orders', 'saims.invoices']);
+
+        if (! $hasAny) {
+            return [];
+        }
+
+        $data = ['saims_linked' => $lead->saims_customer_id !== null];
+
+        if ($user->can('saims.customers')) {
+            $data['saims_customer'] = $lead->saims_customer_id !== null
+                ? ['id' => $lead->saims_customer_id, 'name' => $lead->saims_customer_name]
+                : null;
+        }
+
+        return $data;
     }
 
     /**

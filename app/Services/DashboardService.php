@@ -2,174 +2,468 @@
 
 namespace App\Services;
 
-use Illuminate\Support\Carbon;
+use App\Enums\LeadSource;
+use App\Enums\LeadStage;
+use App\Models\Lead;
+use App\Models\User;
+use App\Services\Saims\SaimsException;
+use App\Services\Saims\SaimsService;
+use App\Support\DateRange;
+use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Builder;
 
 /**
- * Supplies the data for the dashboard widgets.
+ * The data of the dashboard widgets.
  *
- * PLACEHOLDER: replace with real queries when the modules exist.
+ *  - Everything about leads is REAL, always read through the user's scope
+ *    (Lead::visibleTo) and, except where noted, limited to the leads created in
+ *    the selected date range.
+ *  - Revenue from SAIMS is "Invoiced (incl. VAT)": the sum of total_sales of the
+ *    non-cancelled invoices. Without saims.invoices the revenue widgets fall back
+ *    to the value of won leads.
+ *  - Top Contacts, Upcoming Follow-ups and AI Insights are still PLACEHOLDERS
+ *    (see the bottom of this file): their modules do not exist yet.
  *
- * Every method below returns hard-coded sample data, identical for every user,
- * shaped like the final props. When the Leads / Deals / Tasks / AI modules are
- * built, only the bodies of these methods should change: the controller, the
- * permission checks and the React widgets stay as they are.
- *
- * Money is returned as plain numbers in pesos (no currency symbol); the
- * frontend formats it with formatPhp().
+ * Money is returned as plain numbers in pesos; the frontend formats it with
+ * formatPhp(). Whether the user may see money at all is decided by the
+ * controller, which asks for the money methods only with dashboard.view-revenue.
  */
 class DashboardService
 {
-    /**
-     * The period shown in the (display-only) date-range chip.
-     *
-     * @return array{from: string, to: string}
-     */
-    public function period(): array
-    {
-        $year = now()->year;
+    public function __construct(private readonly SaimsService $saims) {}
 
-        return ['from' => "{$year}-01-01", 'to' => "{$year}-12-31"];
-    }
+    // ========================================================== leads: stat widgets
 
     /**
-     * Total value of the open pipeline. Money: needs dashboard.view-revenue.
+     * Value of the open leads. Money: dashboard.view-revenue.
      *
      * @return array{total: float, deals_count: int}
      */
-    public function pipelineGoal(): array
+    public function pipelineGoal(User $user, DateRange $range): array
     {
-        return ['total' => 4102000.00, 'deals_count' => 48];
-    }
-
-    /**
-     * Revenue of the last 7 days. Money: needs dashboard.view-revenue.
-     *
-     * @return array{amount: float, change_percent: float}
-     */
-    public function weeklyRevenue(): array
-    {
-        return ['amount' => 710000.00, 'change_percent' => 12.4];
-    }
-
-    /**
-     * Closed-won revenue against the target, plus a monthly series.
-     * Money: needs dashboard.view-revenue.
-     *
-     * @return array{closed_won: float, target: float, change_percent: float, series: list<array{label: string, value: float}>}
-     */
-    public function revenueGoal(): array
-    {
-        $values = [180000, 240000, 210000, 320000, 290000, 410000, 380000, 450000, 0, 0, 0, 0];
+        $totals = $this->stageTotals($user, $range);
+        $open = array_intersect_key($totals, array_flip(LeadStage::open()));
 
         return [
-            'closed_won' => 2850000.00,
-            'target' => 4000000.00,
-            'change_percent' => 8.2,
-            'series' => $this->monthSeries($values, upTo: 8),
+            'total' => round(array_sum(array_column($open, 'value')), 2),
+            'deals_count' => (int) array_sum(array_column($open, 'count')),
         ];
     }
 
     /**
-     * Win rate and counters. Needs leads.view.
+     * Win rate = won / (won + lost), with the change in points against the
+     * previous period of the same length (null when either period has no closed lead).
      *
-     * @return array{win_rate: float, change_percent: float, leads: int, open_tasks: int}
+     * @return array{win_rate: float, change_percent: ?float, leads: int, open_leads: int, won: int, lost: int}
      */
-    public function conversion(): array
+    public function conversion(User $user, DateRange $range): array
     {
-        return ['win_rate' => 32.5, 'change_percent' => 4.1, 'leads' => 128, 'open_tasks' => 17];
+        $now = $this->stageTotals($user, $range);
+        $rate = $this->winRate($now);
+        $before = $this->winRate($this->stageTotals($user, $range->previous()));
+
+        return [
+            'win_rate' => $rate ?? 0.0,
+            'change_percent' => $rate !== null && $before !== null ? round($rate - $before, 1) : null,
+            'leads' => (int) array_sum(array_column($now, 'count')),
+            'open_leads' => (int) array_sum(array_column(array_intersect_key($now, array_flip(LeadStage::open())), 'count')),
+            'won' => $now['won']['count'],
+            'lost' => $now['lost']['count'],
+        ];
     }
 
     /**
-     * New leads per month and per year. Needs leads.view.
-     *
-     * `highlight` is the index of the bar that shows the tooltip by default;
-     * `change_percent` is the change against the previous bar.
+     * New leads per month (the months of the range, at most the last 12) and per
+     * year (the 5 calendar years up to the end of the range, whatever the months
+     * selected). `change_percent` is the change against the previous bar.
      *
      * @return array{monthly: array{highlight: int, bars: list<array<string, mixed>>}, annually: array{highlight: int, bars: list<array<string, mixed>>}}
      */
-    public function engagement(): array
+    public function engagement(User $user, DateRange $range): array
     {
-        $months = [34, 41, 38, 52, 47, 63, 58, 71, 66, 80, 74, 92];
-        $years = [310, 365, 402, 478, 540];
-        $firstYear = now()->year - count($years) + 1;
+        // monthly
+        $months = $range->months(12);
+        $perMonth = [];
+
+        foreach ($this->leads($user, $range)->pluck('created_at') as $createdAt) {
+            $key = $createdAt->format('Y-m');
+            $perMonth[$key] = ($perMonth[$key] ?? 0) + 1;
+        }
+
+        $sameYear = $months === [] || $months[0]->year === end($months)->year;
+        $monthly = array_map(fn (CarbonImmutable $month) => [
+            'label' => $month->format($sameYear ? 'M' : "M 'y"),
+            'value' => $perMonth[$month->format('Y-m')] ?? 0,
+        ], $months);
+
+        $reference = min(CarbonImmutable::now(), $range->to)->format('Y-m');
+        $highlight = array_search($reference, array_map(fn ($m) => $m->format('Y-m'), $months), true);
+
+        // yearly
+        $lastYear = $range->to->year;
+        $firstYear = $lastYear - 4;
+        $perYear = [];
+
+        $yearScope = Lead::query()->visibleTo($user)
+            ->whereBetween('created_at', [CarbonImmutable::create($firstYear)->startOfYear(), CarbonImmutable::create($lastYear)->endOfYear()]);
+
+        foreach ($yearScope->pluck('created_at') as $createdAt) {
+            $perYear[$createdAt->year] = ($perYear[$createdAt->year] ?? 0) + 1;
+        }
+
+        $yearly = array_map(fn (int $year) => ['label' => (string) $year, 'value' => $perYear[$year] ?? 0], range($firstYear, $lastYear));
 
         return [
-            'monthly' => [
-                'highlight' => now()->month - 1,
-                'bars' => $this->withChange(array_map(
-                    fn (int $i) => ['label' => Carbon::create(null, $i + 1, 1)->format('M'), 'value' => $months[$i]],
-                    array_keys($months),
-                )),
-            ],
-            'annually' => [
-                'highlight' => count($years) - 1,
-                'bars' => $this->withChange(array_map(
-                    fn (int $i) => ['label' => (string) ($firstYear + $i), 'value' => $years[$i]],
-                    array_keys($years),
-                )),
-            ],
+            'monthly' => ['highlight' => $highlight === false ? max(count($monthly) - 1, 0) : $highlight, 'bars' => $this->withChange($monthly)],
+            'annually' => ['highlight' => count($yearly) - 1, 'bars' => $this->withChange($yearly)],
         ];
     }
 
     /**
-     * Recent lead activity. Needs leads.view.
-     *
-     * The deal value is money, so it is only included with $withValue
-     * (dashboard.view-revenue).
+     * The most recently changed leads. The deal value is money: only $withValue.
      *
      * @return list<array<string, mixed>>
      */
-    public function leadActivity(bool $withValue): array
+    public function leadActivity(User $user, DateRange $range, bool $withValue): array
     {
-        $rows = [
-            ['Maria Santos', 'Santos Trading', 0, '09:15', 'New', 85000],
-            ['Juan Dela Cruz', 'Dela Cruz Logistics', 1, '14:40', 'Qualified', 240000],
-            ['Angela Reyes', 'Reyes & Co.', 2, '11:05', 'Proposal', 520000],
-            ['Paolo Garcia', 'Garcia Foods', 3, '16:20', 'Won', 310000],
-            ['Liza Mendoza', 'Mendoza Retail', 5, '10:30', 'Lost', 150000],
-            ['Carlo Ramos', 'Ramos Builders', 6, '13:55', 'Qualified', 98000],
-        ];
+        return $this->leads($user, $range)
+            ->orderByDesc('updated_at')
+            ->orderByDesc('id')
+            ->limit(6)
+            ->get()
+            ->map(function (Lead $lead) use ($withValue) {
+                $item = [
+                    'id' => $lead->id,
+                    'name' => $lead->name,
+                    'company' => $lead->company,
+                    'date' => $lead->updated_at->toDateString(),
+                    'time' => $lead->updated_at->format('H:i'),
+                    'status' => $lead->stage->label(),
+                ];
 
-        return array_map(function (array $row, int $index) use ($withValue) {
-            [$name, $company, $daysAgo, $time, $status, $value] = $row;
+                if ($withValue) {
+                    $item['value'] = (float) $lead->value;
+                }
 
-            $item = [
-                'id' => $index + 1,
-                'name' => $name,
-                'company' => $company,
-                'date' => now()->subDays($daysAgo)->toDateString(),
-                'time' => $time,
-                'status' => $status,
-            ];
-
-            if ($withValue) {
-                $item['value'] = (float) $value;
-            }
-
-            return $item;
-        }, $rows, array_keys($rows));
+                return $item;
+            })
+            ->all();
     }
 
     /**
-     * Leads grouped by source. Needs leads.view.
+     * Leads by source, largest first.
      *
      * @return array{total: int, items: list<array{label: string, value: int}>}
      */
-    public function leadSources(): array
+    public function leadSources(User $user, DateRange $range): array
     {
-        $items = [
-            ['label' => 'Website', 'value' => 52],
-            ['label' => 'Referral', 'value' => 31],
-            ['label' => 'Social media', 'value' => 24],
-            ['label' => 'Cold outreach', 'value' => 14],
-            ['label' => 'Events', 'value' => 7],
-        ];
+        $counts = $this->leads($user, $range)->toBase()
+            ->selectRaw('source, count(*) as total')
+            ->groupBy('source')
+            ->pluck('total', 'source')
+            ->sortDesc();
 
-        return ['total' => array_sum(array_column($items, 'value')), 'items' => $items];
+        $items = [];
+        foreach ($counts as $source => $count) {
+            $items[] = ['label' => LeadSource::tryFrom($source)?->label() ?? $source, 'value' => (int) $count];
+        }
+
+        return ['total' => (int) $counts->sum(), 'items' => $items];
     }
 
     /**
-     * Follow-ups due soon. Needs tasks.view.
+     * Leads per stage. `percent` is the stage's share of the total: of the total
+     * value with $withValue (dashboard.view-revenue), of the lead count otherwise.
+     * The peso `value` is money: only $withValue.
+     *
+     * @return array{total: int, items: list<array<string, mixed>>}
+     */
+    public function pipelineStages(User $user, DateRange $range, bool $withValue): array
+    {
+        $totals = $this->stageTotals($user, $range);
+        $totalCount = (int) array_sum(array_column($totals, 'count'));
+        $totalValue = (float) array_sum(array_column($totals, 'value'));
+
+        $items = [];
+        foreach (LeadStage::cases() as $stage) {
+            $row = $totals[$stage->value];
+            $share = $withValue
+                ? ($totalValue > 0 ? $row['value'] / $totalValue : 0)
+                : ($totalCount > 0 ? $row['count'] / $totalCount : 0);
+
+            $item = ['stage' => $stage->label(), 'count' => $row['count'], 'percent' => round($share * 100, 1)];
+
+            if ($withValue) {
+                $item['value'] = $row['value'];
+            }
+
+            $items[] = $item;
+        }
+
+        return ['total' => $totalCount, 'items' => $items];
+    }
+
+    /**
+     * The five biggest open leads. The deal value is money: only $withValue.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function topOpenDeals(User $user, DateRange $range, bool $withValue): array
+    {
+        return $this->leads($user, $range)
+            ->whereIn('stage', LeadStage::open())
+            ->orderByDesc('value')
+            ->orderBy('id')
+            ->limit(5)
+            ->get()
+            ->values()
+            ->map(function (Lead $lead, int $index) use ($withValue) {
+                $item = [
+                    'id' => $lead->id,
+                    'rank' => $index + 1,
+                    'name' => $lead->name,
+                    'company' => $lead->company,
+                    'stage' => $lead->stage->label(),
+                ];
+
+                if ($withValue) {
+                    $item['value'] = (float) $lead->value;
+                }
+
+                return $item;
+            })
+            ->all();
+    }
+
+    // =============================================================== revenue widgets
+    // All of these are money: the controller only asks for them with dashboard.view-revenue.
+
+    /**
+     * Invoiced revenue (SAIMS) of the last 7 days against the 7 before. SAIMS
+     * only: needs saims.invoices, and on a SAIMS failure the widget gets an `error`.
+     *
+     * @return array<string, mixed>
+     */
+    public function saimsWeeklyRevenue(): array
+    {
+        $today = CarbonImmutable::now()->startOfDay();
+        $weekStart = $today->subDays(6)->toDateString();
+
+        try {
+            $summary = $this->saims->invoiceSummary($today->subDays(13)->toDateString(), $today->toDateString());
+        } catch (SaimsException $e) {
+            return ['source' => 'saims', 'error' => $e->toArray()];
+        }
+
+        $current = 0.0;
+        $previous = 0.0;
+        foreach ($summary['by_date'] as $date => $amount) {
+            $date >= $weekStart ? $current += $amount : $previous += $amount;
+        }
+
+        return [
+            'source' => 'saims',
+            'label' => 'Invoiced (incl. VAT)',
+            'amount' => round($current, 2),
+            'change_percent' => $this->percentChange($current, $previous),
+            'partial' => $summary['partial'],
+            'error' => null,
+        ];
+    }
+
+    /**
+     * Invoiced revenue (SAIMS) in the range, with a monthly series and, when
+     * CRM_REVENUE_TARGET is set, the target.
+     *
+     * @return array<string, mixed>
+     */
+    public function saimsRevenueGoal(DateRange $range): array
+    {
+        try {
+            $summary = $this->saims->invoiceSummary($range->from->toDateString(), $range->to->toDateString());
+        } catch (SaimsException $e) {
+            return ['source' => 'saims', 'error' => $e->toArray()];
+        }
+
+        // The change against the previous period is a bonus: skipped when it cannot be had.
+        $change = null;
+        if (! $summary['partial']) {
+            try {
+                $previous = $this->saims->invoiceSummary($range->previous()->from->toDateString(), $range->previous()->to->toDateString());
+                $change = $previous['partial'] ? null : $this->percentChange($summary['total'], $previous['total']);
+            } catch (SaimsException) {
+                $change = null;
+            }
+        }
+
+        return [
+            'source' => 'saims',
+            'label' => 'Invoiced (incl. VAT)',
+            'amount' => $summary['total'],
+            'target' => config('crm.revenue_target'),
+            'change_percent' => $change,
+            'series' => $this->monthSeries($range, $summary['by_date']),
+            'partial' => $summary['partial'],
+            'invoices' => $summary['count'],
+            'error' => null,
+        ];
+    }
+
+    /**
+     * Without saims.invoices: the value of the leads won in the last 7 days.
+     *
+     * @return array<string, mixed>
+     */
+    public function leadWeeklyRevenue(User $user): array
+    {
+        $today = CarbonImmutable::now();
+        $won = fn (CarbonImmutable $from, CarbonImmutable $to) => (float) Lead::query()->visibleTo($user)
+            ->where('stage', LeadStage::Won->value)
+            ->whereBetween('updated_at', [$from, $to])
+            ->sum('value');
+
+        $current = $won($today->subDays(6)->startOfDay(), $today->endOfDay());
+        $previous = $won($today->subDays(13)->startOfDay(), $today->subDays(7)->endOfDay());
+
+        return [
+            'source' => 'leads',
+            'label' => 'Won lead value',
+            'amount' => round($current, 2),
+            'change_percent' => $this->percentChange($current, $previous),
+            'partial' => false,
+            'error' => null,
+        ];
+    }
+
+    /**
+     * Without saims.invoices: the value of the leads won in the range.
+     *
+     * @return array<string, mixed>
+     */
+    public function leadRevenueGoal(User $user, DateRange $range): array
+    {
+        $won = fn (DateRange $r) => $this->leads($user, $r)->where('stage', LeadStage::Won->value);
+
+        $byDate = [];
+        foreach ($won($range)->get(['created_at', 'value']) as $lead) {
+            $date = $lead->created_at->toDateString();
+            $byDate[$date] = round(($byDate[$date] ?? 0) + (float) $lead->value, 2);
+        }
+
+        $amount = round(array_sum($byDate), 2);
+
+        return [
+            'source' => 'leads',
+            'label' => 'Won lead value',
+            'note' => 'Based on the value of won leads, because your role has no access to SAIMS invoices.',
+            'amount' => $amount,
+            'target' => config('crm.revenue_target'),
+            'change_percent' => $this->percentChange($amount, (float) $won($range->previous())->sum('value')),
+            'series' => $this->monthSeries($range, $byDate),
+            'partial' => false,
+            'error' => null,
+        ];
+    }
+
+    // ================================================================= helpers
+
+    /**
+     * The user's leads created in the range. THE scope of every lead widget.
+     *
+     * @return Builder<Lead>
+     */
+    private function leads(User $user, DateRange $range): Builder
+    {
+        return Lead::query()->visibleTo($user)->whereBetween('created_at', [$range->start(), $range->end()]);
+    }
+
+    /**
+     * Count and value of the leads in each stage (every stage is present).
+     *
+     * @return array<string, array{count: int, value: float}>
+     */
+    private function stageTotals(User $user, DateRange $range): array
+    {
+        $rows = $this->leads($user, $range)->toBase()
+            ->selectRaw('stage, count(*) as total, coalesce(sum(value), 0) as amount')
+            ->groupBy('stage')
+            ->get()
+            ->keyBy('stage');
+
+        $totals = [];
+        foreach (LeadStage::cases() as $stage) {
+            $row = $rows->get($stage->value);
+            $totals[$stage->value] = ['count' => (int) ($row->total ?? 0), 'value' => round((float) ($row->amount ?? 0), 2)];
+        }
+
+        return $totals;
+    }
+
+    /** @param  array<string, array{count: int, value: float}>  $totals */
+    private function winRate(array $totals): ?float
+    {
+        $closed = $totals['won']['count'] + $totals['lost']['count'];
+
+        return $closed > 0 ? round($totals['won']['count'] / $closed * 100, 1) : null;
+    }
+
+    private function percentChange(float $current, float $previous): ?float
+    {
+        return $previous > 0 ? round(($current - $previous) / $previous * 100, 1) : null;
+    }
+
+    /**
+     * Totals per month of the range from a date => amount map.
+     *
+     * @param  array<string, float>  $byDate
+     * @return list<array{label: string, value: float}>
+     */
+    private function monthSeries(DateRange $range, array $byDate): array
+    {
+        $months = $range->months(12);
+        $sameYear = $months === [] || $months[0]->year === end($months)->year;
+
+        return array_map(function (CarbonImmutable $month) use ($byDate, $sameYear) {
+            $prefix = $month->format('Y-m');
+            $sum = 0.0;
+
+            foreach ($byDate as $date => $amount) {
+                if (str_starts_with($date, $prefix)) {
+                    $sum += $amount;
+                }
+            }
+
+            return ['label' => $month->format($sameYear ? 'M' : "M 'y"), 'value' => round($sum, 2)];
+        }, $months);
+    }
+
+    /**
+     * Adds the change against the previous bar, in percent.
+     *
+     * @param  list<array{label: string, value: int}>  $bars
+     * @return list<array<string, mixed>>
+     */
+    private function withChange(array $bars): array
+    {
+        foreach ($bars as $i => $bar) {
+            $previous = $bars[$i - 1]['value'] ?? null;
+
+            $bars[$i]['change_percent'] = $previous
+                ? round(($bar['value'] - $previous) / $previous * 100, 1)
+                : 0.0;
+        }
+
+        return $bars;
+    }
+
+    // ============================================================ PLACEHOLDERS
+    // PLACEHOLDER: replace with real queries when the modules exist.
+    // Contacts, Tasks and the AI feature do not exist yet. These three keep their
+    // sample data, identical for every user, behind their own permissions, and the
+    // widgets say "Sample data" on screen.
+
+    /**
+     * PLACEHOLDER (Tasks module). Needs tasks.view.
      *
      * @return list<array{id: int, title: string, contact: string, due_date: string, overdue: bool, priority: string}>
      */
@@ -193,9 +487,7 @@ class DashboardService
     }
 
     /**
-     * The people you work with most, as avatar initials. Needs contacts.view.
-     *
-     * `more` is how many further contacts are not listed.
+     * PLACEHOLDER (Contacts module). Needs contacts.view.
      *
      * @return array{items: list<array{id: int, name: string}>, more: int}
      */
@@ -214,84 +506,7 @@ class DashboardService
     }
 
     /**
-     * Leads per pipeline stage. Needs deals.view.
-     *
-     * `percent` is the stage's share of the total: of the total value for
-     * users with dashboard.view-revenue, of the lead count for everyone else.
-     * The peso `value` is money, so it is only included with $withValue.
-     *
-     * @return array{total: int, items: list<array<string, mixed>>}
-     */
-    public function pipelineStages(bool $withValue): array
-    {
-        $stages = [
-            ['New', 34, 902000],
-            ['Qualified', 41, 1380000],
-            ['Proposal', 22, 1820000],
-            ['Won', 18, 2850000],
-            ['Lost', 13, 420000],
-        ];
-
-        $totalCount = array_sum(array_column($stages, 1));
-        $totalValue = array_sum(array_column($stages, 2));
-
-        $items = array_map(function (array $stage) use ($withValue, $totalCount, $totalValue) {
-            [$name, $count, $value] = $stage;
-
-            $item = [
-                'stage' => $name,
-                'count' => $count,
-                'percent' => round(($withValue ? $value / $totalValue : $count / $totalCount) * 100, 1),
-            ];
-
-            if ($withValue) {
-                $item['value'] = (float) $value;
-            }
-
-            return $item;
-        }, $stages);
-
-        return ['total' => $totalCount, 'items' => $items];
-    }
-
-    /**
-     * The five biggest open deals, largest first. Needs deals.view.
-     *
-     * The deal value is money, so it is only included with $withValue.
-     *
-     * @return list<array<string, mixed>>
-     */
-    public function topOpenDeals(bool $withValue): array
-    {
-        $deals = [
-            ['Angela Reyes', 'Reyes & Co.', 'Proposal', 520000],
-            ['Benjie Tan', 'Tan Holdings', 'Proposal', 480000],
-            ['Rosa Villanueva', 'Villanueva Corp.', 'Qualified', 395000],
-            ['Juan Dela Cruz', 'Dela Cruz Logistics', 'Qualified', 240000],
-            ['Marco Bautista', 'Bautista Steel', 'New', 185000],
-        ];
-
-        return array_map(function (array $deal, int $index) use ($withValue) {
-            [$name, $company, $stage, $value] = $deal;
-
-            $item = [
-                'id' => $index + 1,
-                'rank' => $index + 1,
-                'name' => $name,
-                'company' => $company,
-                'stage' => $stage,
-            ];
-
-            if ($withValue) {
-                $item['value'] = (float) $value;
-            }
-
-            return $item;
-        }, $deals, array_keys($deals));
-    }
-
-    /**
-     * Short AI-written pipeline insights. Needs ai.insights.
+     * PLACEHOLDER (AI feature). Needs ai.insights.
      *
      * Note for the real implementation: the generated text must not mention
      * revenue figures unless the user also has dashboard.view-revenue.
@@ -308,39 +523,5 @@ class DashboardService
                 'Proposals older than a week are the biggest risk to the win rate.',
             ],
         ];
-    }
-
-    /**
-     * @param  list<int|float>  $values
-     * @return list<array{label: string, value: float}>
-     */
-    private function monthSeries(array $values, int $upTo): array
-    {
-        $series = [];
-
-        foreach (array_slice($values, 0, $upTo) as $i => $value) {
-            $series[] = ['label' => Carbon::create(null, $i + 1, 1)->format('M'), 'value' => (float) $value];
-        }
-
-        return $series;
-    }
-
-    /**
-     * Adds the change against the previous bar, in percent.
-     *
-     * @param  list<array{label: string, value: int}>  $bars
-     * @return list<array<string, mixed>>
-     */
-    private function withChange(array $bars): array
-    {
-        foreach ($bars as $i => $bar) {
-            $previous = $bars[$i - 1]['value'] ?? null;
-
-            $bars[$i]['change_percent'] = $previous
-                ? round(($bar['value'] - $previous) / $previous * 100, 1)
-                : 0.0;
-        }
-
-        return $bars;
     }
 }

@@ -5,7 +5,7 @@ import usePermission from '@/Hooks/usePermission';
 import { Link, usePage } from '@inertiajs/react';
 import { useState } from 'react';
 
-const appName = 'CRM';
+const appName = 'CFB CRM';
 
 const navigation = [
     {

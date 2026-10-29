@@ -1,4 +1,5 @@
-import { PriorityPill, SourceTag, StageBadge } from '@/Components/Leads/Pills';
+import { LinkedBadge, PriorityPill, SourceTag, StageBadge } from '@/Components/Leads/Pills';
+import LeadSaimsPanel from './LeadSaimsPanel';
 import { formatDate, formatPhp, formatRelative } from '@/Utils/format';
 
 function Row({ label, children }) {
@@ -41,6 +42,16 @@ export default function LeadDetails({ lead, options }) {
                     )}
                 </Row>
                 <Row label="Assigned to">{lead.owner?.name}</Row>
+                {lead.saims_customer !== undefined && (
+                    <Row label="SAIMS customer">
+                        {lead.saims_customer && (
+                            <span className="inline-flex flex-wrap items-center gap-2">
+                                {lead.saims_customer.name}
+                                <LinkedBadge />
+                            </span>
+                        )}
+                    </Row>
+                )}
                 <Row label="Created">{lead.created_at && formatDate(lead.created_at.slice(0, 10))}</Row>
                 <Row label="Updated">
                     {lead.updated_at && (
@@ -51,6 +62,8 @@ export default function LeadDetails({ lead, options }) {
                     )}
                 </Row>
             </dl>
+
+            {lead.saims_linked && <LeadSaimsPanel lead={lead} />}
 
             <div className="mt-5 border-t border-slate-100 pt-5">
                 <h3 className="text-sm font-medium text-gray-500">Notes</h3>

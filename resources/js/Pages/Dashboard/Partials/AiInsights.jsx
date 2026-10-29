@@ -6,6 +6,7 @@ import { Icon, icons } from '@/Components/Ui';
 export default function AiInsights({ data }) {
     return (
         <ChartCard
+            sample
             title="AI Sales Insights"
             caption="Generated from your pipeline"
             action={

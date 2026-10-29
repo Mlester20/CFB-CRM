@@ -1,4 +1,5 @@
 import StatusPill from '@/Components/Dashboard/StatusPill';
+import { Icon, icons } from '@/Components/Ui';
 
 const cap = (value) => value.charAt(0).toUpperCase() + value.slice(1);
 
@@ -31,6 +32,19 @@ export function SourceTag({ label }) {
     return (
         <span className="inline-flex items-center whitespace-nowrap rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">
             {label}
+        </span>
+    );
+}
+
+/** Small badge for a lead that is linked to a SAIMS customer (a local column: no SAIMS call). */
+export function LinkedBadge() {
+    return (
+        <span
+            title="Linked to a SAIMS customer"
+            className="inline-flex items-center gap-1 whitespace-nowrap rounded-md bg-sky-50 px-1.5 py-0.5 text-[11px] font-semibold text-sky-700 ring-1 ring-sky-200 ring-inset"
+        >
+            <Icon path={icons.link} className="h-3 w-3" />
+            Linked
         </span>
     );
 }

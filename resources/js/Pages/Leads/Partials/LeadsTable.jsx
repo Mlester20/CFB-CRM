@@ -1,5 +1,5 @@
 import Avatar from '@/Components/Dashboard/Avatar';
-import { PriorityPill, SourceTag, StageBadge } from '@/Components/Leads/Pills';
+import { LinkedBadge, PriorityPill, SourceTag, StageBadge } from '@/Components/Leads/Pills';
 import { Icon, icons } from '@/Components/Ui';
 import { formatDate, formatPhp, formatRelative } from '@/Utils/format';
 import { Link } from '@inertiajs/react';
@@ -108,6 +108,11 @@ export default function LeadsTable({ leads, filters, options, urls, selection, o
                                                 {lead.name}
                                             </Link>
                                             <p className="truncate text-xs text-gray-500">{lead.company}</p>
+                                            {lead.saims_linked && (
+                                                <span className="mt-1 inline-block">
+                                                    <LinkedBadge />
+                                                </span>
+                                            )}
                                         </div>
                                     </div>
                                 </td>

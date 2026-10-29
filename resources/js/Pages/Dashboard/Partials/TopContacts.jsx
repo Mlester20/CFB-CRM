@@ -6,6 +6,7 @@ import { EmptyState, Skeleton } from '@/Components/Dashboard/States';
 export default function TopContacts({ data }) {
     return (
         <ChartCard
+            sample
             title="Top Contacts"
             caption="Your key contacts"
             action={

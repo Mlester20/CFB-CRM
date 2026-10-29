@@ -6,15 +6,20 @@ use App\Enums\LeadPriority;
 use App\Enums\LeadSource;
 use App\Enums\LeadStage;
 use App\Http\Requests\Leads\BulkDeleteLeadsRequest;
+use App\Http\Requests\Leads\LeadFormRequest;
 use App\Http\Requests\Leads\StoreLeadRequest;
 use App\Http\Requests\Leads\UpdateLeadRequest;
 use App\Http\Resources\LeadResource;
 use App\Models\Lead;
 use App\Models\User;
 use App\Queries\LeadQuery;
+use App\Services\Saims\SaimsException;
+use App\Services\Saims\SaimsFailure;
+use App\Services\Saims\SaimsService;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -53,7 +58,7 @@ class LeadController extends Controller
         return $this->render($request, ['mode' => 'edit', 'lead' => LeadResource::detail($lead->load('owner:id,name'), $request->user())]);
     }
 
-    public function store(StoreLeadRequest $request): RedirectResponse
+    public function store(StoreLeadRequest $request, SaimsService $saims): RedirectResponse
     {
         $this->authorize('create', Lead::class);
 
@@ -65,13 +70,14 @@ class LeadController extends Controller
         $lead->owner_id = $request->mayAssignOwner()
             ? ($request->validated('owner_id') ?? $user->id)
             : $user->id;
+        $this->applySaimsLink($lead, $request, $saims);
         $lead->save();
 
         return to_route('leads.show', [$lead, ...LeadQuery::fromRequest($request)->queryParams()])
             ->with('success', "Lead {$lead->name} was added.");
     }
 
-    public function update(UpdateLeadRequest $request, string $lead): RedirectResponse
+    public function update(UpdateLeadRequest $request, SaimsService $saims, string $lead): RedirectResponse
     {
         $lead = $this->resolve($lead, 'update');
 
@@ -82,6 +88,8 @@ class LeadController extends Controller
         if ($request->mayAssignOwner() && $request->validated('owner_id')) {
             $lead->owner_id = $request->validated('owner_id');
         }
+
+        $this->applySaimsLink($lead, $request, $saims);
 
         $lead->save();
 
@@ -97,6 +105,47 @@ class LeadController extends Controller
 
         return to_route('leads.index', LeadQuery::fromRequest($request)->queryParams())
             ->with('success', "Lead {$lead->name} was deleted.");
+    }
+
+    /**
+     * Applies the "SAIMS customer" field of the form.
+     *
+     * Only for a user with saims.customers (for anyone else the field does not
+     * exist and is ignored). A new link is checked against SAIMS, and the name
+     * saved is SAIMS's own, never the one the browser sent. Unlinking clears both
+     * columns. An unchanged link makes no call.
+     *
+     * @throws ValidationException
+     */
+    private function applySaimsLink(Lead $lead, LeadFormRequest $request, SaimsService $saims): void
+    {
+        if (! $request->mayLinkSaims() || ! $request->has('saims_customer_id')) {
+            return;
+        }
+
+        $id = $request->validated('saims_customer_id');
+
+        if ($id === null) {
+            $lead->saims_customer_id = null;
+            $lead->saims_customer_name = null;
+
+            return;
+        }
+
+        if ((int) $lead->saims_customer_id === (int) $id) {
+            return;
+        }
+
+        try {
+            $customer = $saims->customerById((int) $id);
+        } catch (SaimsException $e) {
+            throw ValidationException::withMessages(['saims_customer_id' => $e->failure === SaimsFailure::NotFound
+                ? 'That customer was not found in SAIMS.'
+                : 'SAIMS could not be checked right now, so the customer was not linked. Please try again in a moment.']);
+        }
+
+        $lead->saims_customer_id = $customer['id'];
+        $lead->saims_customer_name = $customer['customer_name'];
     }
 
     /**

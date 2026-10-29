@@ -83,6 +83,74 @@ class SaimsService
         return $this->invoice($this->one("/invoices/{$id}"));
     }
 
+    // ------------------------------------------------------- invoiced revenue
+
+    /** SAIMS has no totals endpoint, so at most this many pages of invoices are read. */
+    public const SUMMARY_MAX_PAGES = 10;
+
+    /** How long a summary is kept: a dashboard reload must not page through SAIMS again. */
+    public const SUMMARY_CACHE_SECONDS = 600;
+
+    /**
+     * Invoiced revenue between two dates (inclusive): the sum of total_sales of
+     * the non-cancelled invoices, by day. Pages through /invoices with
+     * per_page=100, at most SUMMARY_MAX_PAGES pages; `partial` is true when
+     * there were more. Kept for 10 minutes.
+     *
+     * @return array{total: float, count: int, by_date: array<string, float>, partial: bool}
+     *
+     * @throws SaimsException
+     */
+    public function invoiceSummary(string $from, string $to): array
+    {
+        $key = 'saims:invoice-summary:'.hash('sha256', hash('sha256', (string) config('services.saims.token')).'|'.$from.'|'.$to);
+
+        return Cache::remember($key, self::SUMMARY_CACHE_SECONDS, fn () => $this->collectInvoices($from, $to));
+    }
+
+    /**
+     * @return array{total: float, count: int, by_date: array<string, float>, partial: bool}
+     */
+    private function collectInvoices(string $from, string $to): array
+    {
+        $byDate = [];
+        $total = 0.0;
+        $count = 0;
+        $lastPage = 1;
+
+        for ($page = 1; $page <= self::SUMMARY_MAX_PAGES; $page++) {
+            $list = $this->invoices(['from' => $from, 'to' => $to, 'per_page' => self::MAX_PER_PAGE, 'page' => $page]);
+            $lastPage = $list['meta']['last_page'];
+
+            foreach ($list['items'] as $invoice) {
+                if ($invoice['cancelled']) {
+                    continue;
+                }
+
+                $amount = $invoice['totals']['total_sales'];
+                $date = substr((string) $invoice['date'], 0, 10);
+
+                $total += $amount;
+                $count++;
+
+                if ($date !== '') {
+                    $byDate[$date] = round(($byDate[$date] ?? 0) + $amount, 2);
+                }
+            }
+
+            if ($page >= $lastPage) {
+                break;
+            }
+        }
+
+        return [
+            'total' => round($total, 2),
+            'count' => $count,
+            'by_date' => $byDate,
+            'partial' => $lastPage > self::SUMMARY_MAX_PAGES,
+        ];
+    }
+
     // --------------------------------------------------------------- connection
 
     /**

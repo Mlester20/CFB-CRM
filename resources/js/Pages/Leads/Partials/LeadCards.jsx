@@ -1,5 +1,5 @@
 import Avatar from '@/Components/Dashboard/Avatar';
-import { PriorityPill, SourceTag, StageBadge } from '@/Components/Leads/Pills';
+import { LinkedBadge, PriorityPill, SourceTag, StageBadge } from '@/Components/Leads/Pills';
 import { formatDate, formatPhp, formatRelative } from '@/Utils/format';
 import { Link } from '@inertiajs/react';
 import RowMenu from './RowMenu';
@@ -48,6 +48,7 @@ export default function LeadCards({ leads, options, urls, selection, onDelete })
                             <StageBadge stage={lead.stage} />
                             <PriorityPill priority={lead.priority} />
                             <SourceTag label={sources[lead.source] ?? lead.source} />
+                            {lead.saims_linked && <LinkedBadge />}
                         </div>
 
                         <div className="mt-4 flex items-end justify-between gap-2 border-t border-slate-100 pt-3">

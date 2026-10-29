@@ -24,6 +24,11 @@ abstract class LeadFormRequest extends FormRequest
         return (bool) $this->user()?->can(Lead::viewAllPermission());
     }
 
+    public function mayLinkSaims(): bool
+    {
+        return (bool) $this->user()?->can('saims.customers');
+    }
+
     /**
      * @param  int|null  $currentOwnerId  Kept valid on edit even if that user was deactivated since.
      * @return array<string, ValidationRule|array<mixed>|string>
@@ -41,6 +46,12 @@ abstract class LeadFormRequest extends FormRequest
             'value' => ['nullable', 'numeric', 'min:0', 'max:9999999999.99'],
             'notes' => ['nullable', 'string', 'max:5000'],
         ];
+
+        // Only a user who may read SAIMS customers has this field; for everyone else it is
+        // never validated, never read and never saved, whatever the client sends.
+        if ($this->mayLinkSaims()) {
+            $rules['saims_customer_id'] = ['nullable', 'integer', 'min:1'];
+        }
 
         if ($this->mayAssignOwner()) {
             $rules['owner_id'] = [

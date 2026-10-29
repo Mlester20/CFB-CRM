@@ -39,7 +39,7 @@ export default function PipelineGoal({ data }) {
                         {formatPhp(data.total)}
                     </p>
                     <p className="mt-1 text-sm text-sky-100">
-                        Total value across {formatNumber(data.deals_count)} open deals
+                        Value of {formatNumber(data.deals_count)} open {data.deals_count === 1 ? 'lead' : 'leads'}
                     </p>
                 </div>
             )}

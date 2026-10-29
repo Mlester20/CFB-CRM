@@ -47,6 +47,7 @@ class Lead extends Model
             'priority' => LeadPriority::class,
             'source' => LeadSource::class,
             'value' => 'decimal:2',
+            'saims_customer_id' => 'integer',
         ];
     }
 }
