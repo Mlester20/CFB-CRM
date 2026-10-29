@@ -28,6 +28,39 @@ const navigation = [
         ],
     },
     {
+        section: 'SAIMS',
+        items: [
+            {
+                label: 'Customers',
+                icon: icons.users,
+                href: () => route('saims.customers.index'),
+                active: () => route().current('saims.customers.*'),
+                permission: 'saims.customers',
+            },
+            {
+                label: 'Products',
+                icon: icons.cube,
+                href: () => route('saims.products.index'),
+                active: () => route().current('saims.products.*'),
+                permission: 'saims.products',
+            },
+            {
+                label: 'Sales Orders',
+                icon: icons.orders,
+                href: () => route('saims.orders.index'),
+                active: () => route().current('saims.orders.*'),
+                permission: 'saims.orders',
+            },
+            {
+                label: 'Invoices',
+                icon: icons.invoice,
+                href: () => route('saims.invoices.index'),
+                active: () => route().current('saims.invoices.*'),
+                permission: 'saims.invoices',
+            },
+        ],
+    },
+    {
         section: 'Administration',
         items: [
             {
@@ -42,6 +75,13 @@ const navigation = [
                 icon: icons.shield,
                 href: () => route('admin.roles.index'),
                 active: () => route().current('admin.roles.*'),
+                permission: 'roles.manage',
+            },
+            {
+                label: 'SAIMS connection',
+                icon: icons.link,
+                href: () => route('admin.saims'),
+                active: () => route().current('admin.saims'),
                 permission: 'roles.manage',
             },
         ],
