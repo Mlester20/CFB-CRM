@@ -6,6 +6,7 @@ use App\Enums\LeadSource;
 use App\Enums\LeadStage;
 use App\Models\Lead;
 use App\Models\User;
+use App\Policies\LeadPolicy;
 use App\Services\Saims\SaimsException;
 use App\Services\Saims\SaimsService;
 use App\Support\DateRange;
@@ -180,7 +181,8 @@ class DashboardService
      */
     public function pipelineStages(User $user, DateRange $range, bool $withValue): array
     {
-        $totals = $this->stageTotals($user, $range);
+        // The deals widgets follow the deals scope (deals.view-all), like the Pipeline page.
+        $totals = $this->stageTotals($user, $range, LeadPolicy::PIPELINE_VIEW_ALL);
         $totalCount = (int) array_sum(array_column($totals, 'count'));
         $totalValue = (float) array_sum(array_column($totals, 'value'));
 
@@ -210,7 +212,7 @@ class DashboardService
      */
     public function topOpenDeals(User $user, DateRange $range, bool $withValue): array
     {
-        return $this->leads($user, $range)
+        return $this->leads($user, $range, LeadPolicy::PIPELINE_VIEW_ALL)
             ->whereIn('stage', LeadStage::open())
             ->orderByDesc('value')
             ->orderBy('id')
@@ -372,9 +374,9 @@ class DashboardService
      *
      * @return Builder<Lead>
      */
-    private function leads(User $user, DateRange $range): Builder
+    private function leads(User $user, DateRange $range, ?string $viewAll = null): Builder
     {
-        return Lead::query()->visibleTo($user)->whereBetween('created_at', [$range->start(), $range->end()]);
+        return Lead::query()->visibleTo($user, $viewAll)->whereBetween('created_at', [$range->start(), $range->end()]);
     }
 
     /**
@@ -382,9 +384,9 @@ class DashboardService
      *
      * @return array<string, array{count: int, value: float}>
      */
-    private function stageTotals(User $user, DateRange $range): array
+    private function stageTotals(User $user, DateRange $range, ?string $viewAll = null): array
     {
-        $rows = $this->leads($user, $range)->toBase()
+        $rows = $this->leads($user, $range, $viewAll)->toBase()
             ->selectRaw('stage, count(*) as total, coalesce(sum(value), 0) as amount')
             ->groupBy('stage')
             ->get()

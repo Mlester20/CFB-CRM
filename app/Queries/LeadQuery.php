@@ -62,16 +62,7 @@ class LeadQuery
 
         return Lead::query()
             ->visibleTo($this->user)
-            ->when($search !== '', function (Builder $query) use ($search) {
-                // "!" is the escape character: it behaves the same on MySQL and SQLite,
-                // so a typed % or _ is matched literally instead of acting as a wildcard.
-                $like = '%'.strtr($search, ['!' => '!!', '%' => '!%', '_' => '!_']).'%';
-
-                $query->whereRaw(
-                    "(name like ? escape '!' or company like ? escape '!' or email like ? escape '!')",
-                    [$like, $like, $like],
-                );
-            })
+            ->when($search !== '', fn (Builder $query) => $query->matching($search))
             ->when($this->filters['priority'], fn (Builder $q, string $priority) => $q->where('priority', $priority))
             ->when($this->filters['source'], fn (Builder $q, string $source) => $q->where('source', $source));
     }

@@ -28,12 +28,16 @@ trait OwnedByUser
     /**
      * Restrict the query to what $user may see.
      *
+     * $viewAllPermission is the permission that lifts the restriction. It defaults to
+     * the model's own ("leads.view-all"); another module that shows the same rows under
+     * its own permission passes its own, e.g. the Pipeline passes "deals.view-all".
+     *
      * @param  Builder<static>  $query
      * @return Builder<static>
      */
-    public function scopeVisibleTo(Builder $query, User $user): Builder
+    public function scopeVisibleTo(Builder $query, User $user, ?string $viewAllPermission = null): Builder
     {
-        if ($user->can(static::viewAllPermission())) {
+        if ($user->can($viewAllPermission ?? static::viewAllPermission())) {
             return $query;
         }
 
@@ -50,8 +54,8 @@ trait OwnedByUser
         return (int) $this->owner_id === (int) $user->getKey();
     }
 
-    public function isVisibleTo(User $user): bool
+    public function isVisibleTo(User $user, ?string $viewAllPermission = null): bool
     {
-        return $this->isOwnedBy($user) || $user->can(static::viewAllPermission());
+        return $this->isOwnedBy($user) || $user->can($viewAllPermission ?? static::viewAllPermission());
     }
 }

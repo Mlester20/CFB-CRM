@@ -25,6 +25,13 @@ const navigation = [
                 active: () => route().current('leads.*'),
                 permission: 'leads.view',
             },
+            {
+                label: 'Pipeline',
+                icon: icons.columns,
+                href: () => route('pipeline.index'),
+                active: () => route().current('pipeline.*'),
+                permission: 'deals.view',
+            },
         ],
     },
     {

@@ -6,6 +6,7 @@ use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\LeadController;
 use App\Http\Controllers\LeadSaimsController;
+use App\Http\Controllers\PipelineController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\Saims\CustomerController;
 use App\Http\Controllers\Saims\InvoiceController;
@@ -32,6 +33,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('{lead}/edit', [LeadController::class, 'edit'])->whereNumber('lead')->name('edit');
         Route::put('{lead}', [LeadController::class, 'update'])->whereNumber('lead')->name('update');
         Route::delete('{lead}', [LeadController::class, 'destroy'])->whereNumber('lead')->name('destroy');
+    });
+
+    // The Pipeline: a board over the same leads. Needs deals.view; moving needs deals.move.
+    Route::prefix('pipeline')->name('pipeline.')->middleware('permission:deals.view')->group(function () {
+        Route::get('/', [PipelineController::class, 'index'])->name('index');
+        Route::get('column', [PipelineController::class, 'column'])->middleware('throttle:120,1')->name('column');
+        Route::get('{lead}', [PipelineController::class, 'show'])->whereNumber('lead')->name('show');
+        Route::patch('{lead}/move', [PipelineController::class, 'move'])->whereNumber('lead')->middleware('throttle:120,1')->name('move');
     });
 
     // Read-only SAIMS pages. Each module has its own permission: a user without it
