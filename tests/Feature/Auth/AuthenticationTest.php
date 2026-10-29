@@ -4,6 +4,7 @@ namespace Tests\Feature\Auth;
 
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
 class AuthenticationTest extends TestCase
@@ -15,6 +16,9 @@ class AuthenticationTest extends TestCase
         $response = $this->get('/login');
 
         $response->assertStatus(200);
+        $response->assertInertia(fn (Assert $page) => $page
+            ->component('Auth/Login')
+            ->where('canResetPassword', true));
     }
 
     public function test_users_can_authenticate_using_the_login_screen(): void
@@ -34,12 +38,26 @@ class AuthenticationTest extends TestCase
     {
         $user = User::factory()->create();
 
-        $this->post('/login', [
+        $response = $this->from('/login')->post('/login', [
             'email' => $user->email,
             'password' => 'wrong-password',
         ]);
 
         $this->assertGuest();
+        $response->assertRedirect('/login');
+        $response->assertSessionHasErrors('email');
+    }
+
+    public function test_shared_auth_user_only_exposes_safe_fields(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)->get('/dashboard')->assertInertia(fn (Assert $page) => $page
+            ->where('auth.user', [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+            ]));
     }
 
     public function test_users_can_logout(): void
