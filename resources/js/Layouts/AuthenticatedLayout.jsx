@@ -1,3 +1,5 @@
+import Avatar from '@/Components/Dashboard/Avatar';
+import Dropdown from '@/Components/Dropdown';
 import { Icon, icons } from '@/Components/Ui';
 import usePermission from '@/Hooks/usePermission';
 import { Link, usePage } from '@inertiajs/react';
@@ -155,29 +157,92 @@ function FlashMessages() {
     );
 }
 
+function TopBar({ onOpenMenu, menuOpen }) {
+    const { auth } = usePage().props;
+    const { role } = usePermission();
+
+    return (
+        <div className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-slate-200/70 bg-white/85 px-4 backdrop-blur sm:px-6 lg:px-8">
+            <button
+                type="button"
+                onClick={onOpenMenu}
+                aria-label="Open menu"
+                aria-expanded={menuOpen}
+                className="rounded-md p-1.5 text-gray-700 hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-primary-600 lg:hidden"
+            >
+                <Icon path={icons.menu} className="h-6 w-6" />
+            </button>
+            <span className="font-semibold text-gray-900 lg:hidden">{appName}</span>
+
+            {/* Display only for now: clearly inactive, not a broken control. */}
+            <div
+                aria-disabled="true"
+                title="Search is coming soon"
+                className="relative ms-2 hidden w-full max-w-sm cursor-not-allowed sm:block"
+            >
+                <span className="pointer-events-none absolute inset-y-0 start-0 flex items-center ps-3 text-gray-300">
+                    <Icon path={icons.search} />
+                </span>
+                <input
+                    type="search"
+                    disabled
+                    aria-disabled="true"
+                    aria-label="Search (coming soon)"
+                    placeholder="Search (coming soon)"
+                    className="block w-full cursor-not-allowed rounded-xl border-0 bg-slate-100 py-2 ps-10 pe-3 text-sm text-gray-400 placeholder-gray-400"
+                />
+            </div>
+
+            <div className="ms-auto flex items-center gap-1.5">
+                <button
+                    type="button"
+                    aria-disabled="true"
+                    aria-label="Notifications (coming soon)"
+                    title="Notifications are coming soon"
+                    onClick={(event) => event.preventDefault()}
+                    className="cursor-not-allowed rounded-full p-2 text-gray-300 focus-visible:outline-2 focus-visible:outline-primary-600"
+                >
+                    <Icon path={icons.bell} className="h-6 w-6" />
+                </button>
+
+                <Dropdown>
+                    <Dropdown.Trigger>
+                        <button
+                            type="button"
+                            aria-label={`Account menu for ${auth.user.name}`}
+                            className="flex items-center gap-2 rounded-full py-1 ps-1 pe-2 hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-primary-600"
+                        >
+                            <Avatar name={auth.user.name} size="sm" />
+                            <span className="hidden text-start leading-tight sm:block">
+                                <span className="block max-w-32 truncate text-sm font-semibold text-gray-900">
+                                    {auth.user.name}
+                                </span>
+                                <span className="block text-xs text-gray-500">{role ?? 'No role'}</span>
+                            </span>
+                            <Icon path={icons.chevronDown} className="hidden h-4 w-4 text-gray-400 sm:block" />
+                        </button>
+                    </Dropdown.Trigger>
+                    <Dropdown.Content>
+                        <Dropdown.Link href={route('profile.edit')}>Profile</Dropdown.Link>
+                        <Dropdown.Link href={route('logout')} method="post" as="button">
+                            Log out
+                        </Dropdown.Link>
+                    </Dropdown.Content>
+                </Dropdown>
+            </div>
+        </div>
+    );
+}
+
 export default function AuthenticatedLayout({ header, children }) {
     const [menuOpen, setMenuOpen] = useState(false);
 
     return (
-        <div className="min-h-screen bg-gray-50">
+        <div className="min-h-screen bg-canvas">
             {/* Desktop sidebar */}
             <aside className="fixed inset-y-0 start-0 z-30 hidden w-64 lg:block">
                 <SidebarContent />
             </aside>
-
-            {/* Mobile top bar and off-canvas sidebar */}
-            <div className="sticky top-0 z-20 flex items-center gap-3 bg-primary-900 px-4 py-3 text-white lg:hidden">
-                <button
-                    type="button"
-                    onClick={() => setMenuOpen(true)}
-                    aria-label="Open menu"
-                    aria-expanded={menuOpen}
-                    className="rounded-md p-1.5 hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-white"
-                >
-                    <Icon path={icons.menu} className="h-6 w-6" />
-                </button>
-                <span className="font-semibold">{appName}</span>
-            </div>
 
             {menuOpen && (
                 <div className="fixed inset-0 z-40 lg:hidden" role="dialog" aria-modal="true">
@@ -201,8 +266,10 @@ export default function AuthenticatedLayout({ header, children }) {
             )}
 
             <div className="lg:ps-64">
+                <TopBar onOpenMenu={() => setMenuOpen(true)} menuOpen={menuOpen} />
+
                 {header && (
-                    <header className="border-b border-gray-200 bg-white">
+                    <header className="border-b border-slate-200/70 bg-white">
                         <div className="px-4 py-5 sm:px-6 lg:px-8">{header}</div>
                     </header>
                 )}

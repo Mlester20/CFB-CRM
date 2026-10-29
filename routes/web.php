@@ -2,16 +2,16 @@
 
 use App\Http\Controllers\Admin\RoleController;
 use App\Http\Controllers\Admin\UserController;
+use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
-use Inertia\Inertia;
 
 Route::redirect('/', '/login');
 
 Route::middleware(['auth', 'verified'])->group(function () {
-    Route::get('/dashboard', function () {
-        return Inertia::render('Dashboard');
-    })->middleware('permission:dashboard.view')->name('dashboard');
+    Route::get('/dashboard', DashboardController::class)
+        ->middleware('permission:dashboard.view')
+        ->name('dashboard');
 
     Route::prefix('admin')->name('admin.')->group(function () {
         Route::middleware('permission:users.manage')->group(function () {

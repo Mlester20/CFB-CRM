@@ -20,6 +20,65 @@
     --color-primary-900: #1e3a8a;
     --color-primary-950: #172554;
 
+    --color-canvas: #f1f6fb;
+
     --font-sans: 'Figtree', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji',
         'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+}
+
+/* Light chart animations. Each rule ends in the final state, so turning the
+   animation off (reduced motion) still shows the finished chart. */
+@keyframes chart-grow {
+    from {
+        transform: scaleY(0);
+    }
+}
+
+@keyframes chart-draw {
+    from {
+        stroke-dashoffset: 1;
+    }
+}
+
+@keyframes chart-fade {
+    from {
+        opacity: 0;
+    }
+}
+
+@keyframes chart-pop {
+    from {
+        opacity: 0;
+        transform: scale(0.85);
+    }
+}
+
+.chart-bar {
+    transform-box: fill-box;
+    transform-origin: bottom;
+    animation: chart-grow 0.6s ease-out both;
+}
+
+.chart-line {
+    stroke-dasharray: 1;
+    animation: chart-draw 1s ease-out both;
+}
+
+.chart-fade {
+    animation: chart-fade 0.8s ease-out both;
+}
+
+.chart-pop {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: chart-pop 0.6s ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .chart-bar,
+    .chart-line,
+    .chart-fade,
+    .chart-pop {
+        animation: none;
+    }
 }
